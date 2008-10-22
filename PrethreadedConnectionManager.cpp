@@ -10,21 +10,32 @@ using namespace std;
 const int listenq_length = 10;
 const int default_nthreads = 5;
 
-PrethreadedConnectionManager::PrethreadedConnectionManager(const char *h, const char *p){
-    PrethreadedConnectionManager(h,p,default_nthreads);
-}
-
 PrethreadedConnectionManager::PrethreadedConnectionManager(const char *p){
     host="";
     port=p;
-    PrethreadedConnectionManager("",p,default_nthreads);
+    PrethreadedConnectionManager(default_nthreads,"",p);
 }
 
-PrethreadedConnectionManager::PrethreadedConnectionManager(const char *h, const char *p, const int nt){
+PrethreadedConnectionManager::PrethreadedConnectionManager(const char *h, const char *p){
+    PrethreadedConnectionManager(default_nthreads,h,p);
+}
+
+PrethreadedConnectionManager::PrethreadedConnectionManager(const int nt, const char *h, const char *p){
     host=h;
     port=p;
     nthreads=fmax(nt, 1);
 }
+
+
+void PrethreadedConnectionManager::start(ConnectionHandler& ch){
+    cout << "Starting PrethreadedConnectionManager" << endl;
+}
+
+
+void PrethreadedConnectionManager::stop(){
+    cout << "Would be stoping PrethreadedConnectionManager" << endl;
+}
+
 
 // TODO: get rid of any C-esque suff here, make this throw exception instead of calling err_quit...
 int PrethreadedConnectionManager::tcp_listen(){
@@ -67,14 +78,23 @@ int PrethreadedConnectionManager::tcp_listen(){
     return(listenfd);
 }
 
-void PrethreadedConnectionManager::start(){
-    cout << "Would be starting PrethreadedConnectionManager" << endl;
+PrethreadedConnectionManager::AcceptThread::AcceptThread(int ii, ConnectionHandler& ch) : i(ii), handler(ch){}
+
+void PrethreadedConnectionManager::AcceptThread::run(){
+    int n;
+
+    if ((n = pthread_create(&tid, NULL, &handle_fn, (void *) i)) != 0){
+        errno = n;
+        err_sys("pthread_create error");
+    } else return;
 }
 
 
-void PrethreadedConnectionManager::stop(){
-    cout << "Would be stoping PrethreadedConnectionManager" << endl;
-}
+int connfd;
+struct sockaddr *cliaddr; // current client's address
+socklen_t clilen; // current client's address length
+
+// TEST CODE
 
 int main(int argc, char* argv[]){
     PrethreadedConnectionManager *manager=NULL;
