@@ -1,3 +1,9 @@
-PrethreadedConnectionManager: PrethreadedConnectionManager.h
+minns: PrethreadedConnectionManager.o EchoHandler.o
+
+
+
+EchoHandler.o: EchoHandler.h common.h
+PrethreadedConnectionManager.o: EchoHandler.h common.h
+
 clean:
-	rm -rf *.o PrethreadedConnectionManager *.dSYM
+	rm -rf *.o minns *.dSYM

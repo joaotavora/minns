@@ -13,7 +13,7 @@
 
 // Based on W. Richard Stevens, "TCP Prethreaded Server, per-Thread accept"
 // example of "Unix Network Programming, Volume 1"
-class PrethreadedConnectionManager :: ConnectionManager {
+class PrethreadedConnectionManager : public ConnectionManager {
 public:
     PrethreadedConnectionManager(const int nthreads, const char *host, const char *port);
     PrethreadedConnectionManager(const char *host, const char *port);

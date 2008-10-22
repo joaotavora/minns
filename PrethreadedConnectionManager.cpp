@@ -1,7 +1,7 @@
 #include <iostream> // cout
 #include <cmath> // fmax
 
-#include "Common.h"
+#include "common.h"
 #include "PrethreadedConnectionManager.h"
 
 using namespace std;
@@ -26,16 +26,13 @@ PrethreadedConnectionManager::PrethreadedConnectionManager(const int nt, const c
     nthreads=fmax(nt, 1);
 }
 
-
 void PrethreadedConnectionManager::start(ConnectionHandler& ch){
     cout << "Starting PrethreadedConnectionManager" << endl;
 }
 
-
 void PrethreadedConnectionManager::stop(){
     cout << "Would be stoping PrethreadedConnectionManager" << endl;
 }
-
 
 // TODO: get rid of any C-esque suff here, make this throw exception instead of calling err_quit...
 int PrethreadedConnectionManager::tcp_listen(){
@@ -83,16 +80,33 @@ PrethreadedConnectionManager::AcceptThread::AcceptThread(int ii, ConnectionHandl
 void PrethreadedConnectionManager::AcceptThread::run(){
     int n;
 
-    if ((n = pthread_create(&tid, NULL, &handle_fn, (void *) i)) != 0){
+    if ((n = pthread_create_w(&tid, NULL, &thread_main, (void *) i)) != 0){
         errno = n;
-        err_sys("pthread_create error");
+        err_sys("pthread_create() error");
     } else return;
 }
 
+void *PrethreadedConnectionManager::AcceptThread::thread_main(void *arg){
+    int connfd;
+    struct sockaddr *cliaddr; // current client's address
+    socklen_t clilen; // current client's address length
 
-int connfd;
-struct sockaddr *cliaddr; // current client's address
-socklen_t clilen; // current client's address length
+    if ((cliaddr = (struct sockaddr*) malloc(addrlen))==NULL){
+        err_sys("malloc() error creating cliaddr");
+    }
+
+    cout << "Thread " << i << "starting" << endl;
+    while(1){
+        clilen = addrlen;
+        pthread_mutex_lock_w(&mlock);
+        connfd = accept_w(listenfd, cliaddr, &clilen);
+        pthread_mutex_unlock_w(&mlock);
+        handledConnections++;
+
+        handler.handle(connfd);
+        close_w(connfd);
+    }
+}
 
 // TEST CODE
 
