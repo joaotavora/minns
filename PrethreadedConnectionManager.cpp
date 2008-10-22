@@ -1,7 +1,7 @@
 #include <iostream> // cout
 #include <cmath> // fmax
 
-#include "common.h"
+#include "wrappers.h"
 #include "PrethreadedConnectionManager.h"
 
 using namespace std;
