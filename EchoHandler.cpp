@@ -1,4 +1,4 @@
-#include "vendor/unp/unpthread.h"
+#include "unpthread.h"
 #include "EchoHandler.h"
 
 #define MAXN    16384           /* max #bytes that a client can request */

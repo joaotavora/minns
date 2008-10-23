@@ -8,7 +8,6 @@
 
 using namespace std;
 
-
 int main(int argc, char* argv[]){
     PrethreadedConnectionManager *manager=NULL;
     EchoHandler handler;
@@ -21,7 +20,9 @@ int main(int argc, char* argv[]){
         cerr << "usage: " << argv[0] <<" [ <host> ] <port#> <#threads>" << endl;
         exit(-1);
     }
-    manager->start(handler);
+
+    TcpServer server(*manager,handler);
+    server.start();
 
     return 0;
 }

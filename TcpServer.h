@@ -9,8 +9,8 @@ public:
     TcpServer(ConnectionManager& cm, ConnectionHandler&ch);
 
     void start();
-    void end();
-    void deamonize();
+    void stop();
+    void daemonize();
 
 private:
     ConnectionManager& connectionManager;

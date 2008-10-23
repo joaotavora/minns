@@ -3,7 +3,7 @@
 #include <cmath> // fmax
 
 // FIXME: remove this dependency. Make classes
-#include "vendor/unp/unpthread.h"
+#include "unpthread.h"
 #include "PrethreadedConnectionManager.h"
 
 using namespace std;
@@ -25,14 +25,18 @@ PrethreadedConnectionManager::PrethreadedConnectionManager(const int nt, const c
     host=h;
     port=p;
     nthreads=fmax(nt, 1);
+    for (int i = 0; i < nthreads; i++)
+        threads.push_back(new AcceptThread(i));
 }
 
 void PrethreadedConnectionManager::start(ConnectionHandler& ch){
-    cout << "Starting PrethreadedConnectionManager" << endl;
+    cout << "Starting PrethreadedConnectionManager\n";
+    for (iterator iter = threads.begin(); iter != threads.end(); iter++)
+        *iter.run();
 }
 
 void PrethreadedConnectionManager::stop(){
-    cout << "Would be stoping PrethreadedConnectionManager" << endl;
+    cout << "Would be stoping PrethreadedConnectionManager\n";
 }
 
 /* Using the first solution described in http://www.tuxtips.org/?p=5
@@ -63,7 +67,7 @@ void *PrethreadedConnectionManager::AcceptThread::thread_main(){
         err_sys("malloc() error creating cliaddr");
     }
 
-    cout << "Thread " << i << "starting" << endl;
+    cout << "Thread " << i << "starting\n";
     while(1){
         clilen = manager.addrlen;
         Pthread_mutex_lock(&manager.mlock);
