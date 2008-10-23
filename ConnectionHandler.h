@@ -3,7 +3,10 @@
 
 class ConnectionHandler {
 public:
+    virtual ~ConnectionHandler();
+
     virtual void handle(int connfd);
-}
+};
+
 
 #endif // CONNECTION_HANDLER_H

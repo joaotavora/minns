@@ -1,5 +1,7 @@
-#include "Common.h"
+#include "vendor/unp/unpthread.h"
 #include "EchoHandler.h"
+
+#define MAXN    16384           /* max #bytes that a client can request */
 
 void EchoHandler::handle(int sockfd){
     int                 ntowrite;
@@ -7,7 +9,7 @@ void EchoHandler::handle(int sockfd){
     char                line[MAXLINE], result[MAXN];
 
     for ( ; ; ) {
-        if ( (nread = readline_w(sockfd, line, MAXLINE)) == 0)
+        if ( (nread = Readline(sockfd, line, MAXLINE)) == 0)
             return;             /* connection closed by other end */
 
         /* 4line from client specifies #bytes to write back */
@@ -15,6 +17,6 @@ void EchoHandler::handle(int sockfd){
         if ((ntowrite <= 0) || (ntowrite > MAXN))
             err_quit("client request for %d bytes", ntowrite);
 
-        writen_w(sockfd, result, ntowrite);
+        Writen(sockfd, result, ntowrite);
     }
 }

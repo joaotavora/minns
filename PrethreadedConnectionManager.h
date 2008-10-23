@@ -9,6 +9,8 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
+#include <vector>
+
 #include "ConnectionManager.h"
 
 // Based on W. Richard Stevens, "TCP Prethreaded Server, per-Thread accept"
@@ -31,24 +33,29 @@ private:
     socklen_t addrlen;
 
     pthread_mutex_t mlock;
-    vector<AcceptThread> threads;
 
-    int tcp_listen();
+    class AcceptThread;
+    friend class AcceptThread;
+
+    std::vector<AcceptThread> threads;
 
     class AcceptThread {
     public:
-        Thread(int i, ConnectionHandler& handler);
+        AcceptThread(int i, ConnectionHandler& handler, PrethreadedConnectionManager& pcm);
 
         void run(); // creates the thread
         void stop(); // signals the thread to stop when it sees fit
 
     private:
         int i;    // thread index
-        int tid;  // thread id, different from index, assigned by pthread_create()
+        pthread_t tid;  // thread id, different from index, assigned by pthread_create()
+        int handledConnections;
 
         ConnectionHandler& handler;
+        PrethreadedConnectionManager& manager;
 
-        void *thread_main(void *arg);
+        static void* sThreadHelper (void* args);
+        void *thread_main();
     };
 };
 
