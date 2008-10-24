@@ -1,5 +1,9 @@
+// stdl includes
+
 #include <iostream>
 #include <string>
+
+// libc includes
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -10,10 +14,14 @@
 #include <errno.h>
 #include <fcntl.h>
 
+// Project includes
+
 #include "Exception.h"
 #include "TcpSocket.h"
 
 using namespace std;
+
+// Class members definition
 
 TcpSocket::TcpSocket()
     : sockaddr(*new sockaddr_in),
@@ -47,8 +55,10 @@ TcpSocket::TcpSocket(int fd, sockaddr_in& addr, socklen_t& len)
       read_buffer(*new std::string) {}
 
 TcpSocket::~TcpSocket(){
-    if (::close(sockfd) != 0)
-        throw *new SocketException("Could not close socket", errno);
+    if (!closed()){
+        cerr << "TcpSocket: warning: closing socket in dtor\n";
+        close();
+    }
 }
 
 void TcpSocket::connect(const string host, const int port){
@@ -67,7 +77,7 @@ void TcpSocket::connect(const string host, const int port){
 }
 
 void TcpSocket::bind(const int port){
-    if (bound()) throw *new SocketException("Socket already bound");
+    if (bound() or listening() or connected() ) throw *new SocketException("Socket already bound");
 
     sockaddr.sin_family         = AF_INET;
     sockaddr.sin_addr.s_addr    = INADDR_ANY;
@@ -107,7 +117,13 @@ TcpSocket& TcpSocket::accept() const {
     return clisocket;
 }
 
-void TcpSocket::send(const string s) const{
+void TcpSocket::close() {
+    setStatus(CLOSED);
+    if (::close(sockfd) != 0)
+        throw *new SocketException("Could not close socket", errno);
+}
+
+void TcpSocket::write(const string s) const{
     cout << "Would be sending: " << s << " to socket\n";
 }
 
@@ -198,62 +214,120 @@ std::ostream& operator<<(std::ostream& os, const TcpSocket& sock){
     return os << s;
 }
 
-// Unit tests
+// Unit test helpers
 
-TcpSocket& bindListenAccept(TcpSocket& serverSocket){
-    serverSocket.bind(34343);
+const int LOCALPORT = 34343;
+
+TcpSocket& bindListenAccept(int port, TcpSocket& serverSocket){
+    serverSocket.bind(port);
     serverSocket.listen();
 
-    cout << "  Socket bound: " << serverSocket << endl
-         << "  Waiting for accept() to return\n. ";
+    cout << "  Server socket bound: " << serverSocket << endl
+         << "  Server accepting connections\n";
     // TODO: fork a child with connect here!
     TcpSocket& connected =  serverSocket.accept();
     cout << "  Connection accepted: " << connected << endl;
     return connected;
 }
 
+void checkChild(pid_t child_pid){
+    int status;
+
+    if ((child_pid==waitpid(child_pid, &status, 0)) and
+        WIFEXITED(status) and
+        (WEXITSTATUS(status) == 0)){
+        return;
+    } else
+        throw *new Exception("Child process didn't terminate well");
+}
+
+// Unit tests
+
 bool simpleAcceptConnectTest(){
     cout << "Starting simpleAcceptConnectTest() ...\n";
+    pid_t child;
+    // client code
+    if ((child=fork())==0){
+        try {
+            TcpSocket toServer;
+            cout << "  Forked child connecting to server\n";
+            toServer.connect("localhost",LOCALPORT);
+            cout << "  Forked child connected: " << toServer << endl;
+            cout << "  Forked child closing connection to server\n";
+            toServer.close();
+            exit(0);
+        } catch (SocketException& e) {
+            cout << "  Forked child exception: " << e << endl;
+            exit(-1);
+        }
+        return false; // for clarity
+    }
+    // server code
     try {
-        TcpSocket& connectedSocket = bindListenAccept(*new TcpSocket());
-        // TODO: fork a connecting client here
-        cout << "  \n...done!\n";
-        return true;
-    } catch (SocketException& e) {
-        cout << "  " << e << endl;
-        cout << "  \n...failed!\n";
+        TcpSocket serverSocket;
+        TcpSocket& toClient = bindListenAccept(LOCALPORT, serverSocket);
+        cout << "  Server closing connection to client\n";
+        toClient.close();
+        cout << "  Server closing listening socket\n";
+        serverSocket.close();
+        checkChild(child);
+        cout << "Done!\n";
+    } catch (Exception& e) {
+        cout << "  Server exception: " << e << endl;
+        cout << "Failed!\n";
         return false;
     }
 }
 
 bool readOneLineFromClientTest(const int linesize=DEFAULT_MAX_RECV){
     cout << "Starting readOneLineFromClientTest() ...\n";
+
+    string message("Passaro verde abandona ninho. Escuto\n");
+    pid_t child;
+    // client code
+    if ((child=fork())==0){
+        try {
+            TcpSocket toServer;
+            cout << "  Forked child connecting to server\n";
+            toServer.connect("localhost",LOCALPORT);
+            cout << "  Forked child connected: " << toServer << endl;
+            cout << "  Forked child sending to server\n";
+            toServer.write(message);
+            cout << "  Forked child closing connection to server\n";
+            toServer.close();
+            exit(0);
+        } catch (SocketException& e) {
+            cout << "  Forked child exception: " << e << endl;
+            exit(-1);
+        }
+        return false; // for clarity
+    }
+
+    // server code
     try {
-        TcpSocket& connectedSocket = bindListenAccept(*new TcpSocket());
+        TcpSocket& connectedSocket = bindListenAccept(LOCALPORT, *new TcpSocket());
         std::string clientmessage;
-        cout << "  Reading one at most" << linesize << " chars long line from client\n";
+        cout << "  Reading one (at most " << linesize << " chars long) line from client\n";
         connectedSocket.readline(clientmessage, linesize);
         if (clientmessage.empty()){
             cout << "  \n...failed!\n";
             return false;
         }
-        // std::string::size_type newline_idx=clientmessage.find_first_of('\n');
-        // clientmessage.erase(newline_idx,1);
         cout << "  Read: \"" << clientmessage << "\"";
-        cout << "  \n...done!\n";
+        checkChild();
+        cout << "Done!\n";
         return true;
     } catch (SocketException& e) {
         cout << "  " << e << endl;
+        cout << "Failed!\n";
         return false;
     }
 }
 
 int main(int argc, char* argv[]){
     cout << "Starting TcpSocket unit tests\n";
-    //simpleAcceptConnectTest();
-    readOneLineFromClientTest(10);
-    readOneLineFromClientTest(10);
-    readOneLineFromClientTest(10);
+    simpleAcceptConnectTest();
+    //readOneLineFromClientTest(10);
     cout << "Done with TcpSocket unit tests\n";
 }
 

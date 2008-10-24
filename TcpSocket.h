@@ -21,10 +21,12 @@ public:
     void listen();
     TcpSocket& accept() const;
 
-    // Data Transimission
-    void send ( const std::string ) const;
+    // Common to client and server sockets
+    void close();
 
+    // Data Transimission
     std::string::size_type readline(std::string& result, const int howmany = DEFAULT_MAX_RECV) const;
+    void write (const std::string) const;
 
     // Check status
     bool fresh() const;
