@@ -17,7 +17,8 @@ all : minns
 minns: $(OBJS) $(LIBS) 
 	$(LINK.cpp) $(OBJS) $(LDLIBS) -o $@
 
-# $(CXX) $(CXXFLAGS) -o minns $(OBJS)
+sockettest: TcpSocket.o Exception.o
+	$(LINK.cpp) TcpSocket.o Exception.o $(LDLIBS) -o $@
 
 TcpServer.o: TcpServer.cpp TcpServer.h ConnectionManager.h ConnectionHandler.h
 ConnectionHandler.o: ConnectionHandler.h
@@ -25,6 +26,9 @@ ConnectionManager.o: ConnectionManager.h
 EchoServer.o: EchoServer.cpp EchoServer.h TcpServer.h ConnectionManager.h ConnectionHandler.h
 EchoHandler.o: EchoHandler.cpp EchoHandler.h ConnectionHandler.h
 PrethreadedConnectionManager.o: PrethreadedConnectionManager.cpp PrethreadedConnectionManager.h ConnectionManager.h ConnectionHandler.h
+
+TcpSocket.o: TcpSocket.cpp TcpSocket.h Exception.h
+Exception.o: Exception.cpp Exception.h
 
 clean: 
 	rm -rf *.o minns *.dSYM
