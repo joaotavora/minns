@@ -70,12 +70,14 @@ void TcpSocket::bind(const int port){
     setStatus(BOUND);
 }
 
-void TcpSocket::listen() const {
+void TcpSocket::listen(){
     if (!bound()) throw *new SocketException("Socket isn't bound yet");
 
     // TODO: review if MAXCONNECTIONS should be a parameter to the socket.
     if (::listen (sockfd, MAXCONNECTIONS) != 0)
         throw *new SocketException("Cound not accept()", errno);
+
+    setStatus(LISTENING);
 }
 
 TcpSocket& TcpSocket::accept() const {
@@ -117,6 +119,10 @@ bool TcpSocket::connected() const {
     return status==CONNECTED;
 }
 
+bool TcpSocket::fresh() const {
+    return status==FRESH;
+}
+
 void TcpSocket::setStatus(const enum status_t newStatus) {
     status=newStatus;
 }
@@ -124,51 +130,49 @@ void TcpSocket::setStatus(const enum status_t newStatus) {
 const string& TcpSocket::printStatus() const{
     switch (status){
     case BOUND:
-        return "Bound";
+        return *new string("Bound");
     case CONNECTED:
-        return "Connected";
+        return *new string("Connected");
     case LISTENING:
-        return "Listening";
+        return *new string("Listening");
+    case CLOSED:
+        return *new string("Closed");
     default:
-        return "Unknown";
+        return *new string("New or unknown");
     }
 }
 
-std::ostream& TcpSocket::out(std::ostream& os) const{
-    string s;
-
-    s << "[TcpSocket: status:" << printStatus();
-    if (status!=UNKNOWN){
-
-        s << " address: ";
-        char buff[MAXLINE];
-        if (inet_ntop(AF_INET, sockaddr, buff, MAXLINE)!=NULL)
-            s << buff;
+std::ostream& operator<<(std::ostream& os, const TcpSocket& sock){
+    string s = "[TcpSocket: status=\'" + sock.printStatus();
+    if (!sock.fresh()){
+        s += "\' address=\'";
+        char buff[MAXHOSTNAME];
+        if (inet_ntop(AF_INET, &sock.sockaddr, buff, MAXHOSTNAME)!=NULL)
+            s += buff;
         else
-            s << "<internal error>";
-    } else { s << " unknown status"; }
-    s << "]";
+            s += "<internal error>";
+    } else { s += " address=irrevant!"; }
+    s += "]";
 
     return os << s;
-}
-
-std::ostream& operator<<(std:stream& os, const TcpSocket& sock){
-    return sock.out(os);
 }
 
 // Unit tests
 
 bool simpleAcceptTest(){
+    cout << "  Starting simpleAcceptTest() ...\n";
     try {
         TcpSocket serverSocket;
 
         serverSocket.bind(34343);
         serverSocket.listen();
 
-        cout << "  Bound to localhost:34343"
+        cout << "  Socket bound: " << serverSocket << endl
              << "  Waiting for accept() to return\n. ";
         TcpSocket& connectedSocket = serverSocket.accept();
-        cout << "  Connection accepted: " << connectedSocket << endl << "Closing!\n";
+        cout << "  Connection accepted: " << connectedSocket << endl;
+        cout << "  Closing...";
+        cout << "  \n...done!\n";
         return true;
     } catch (SocketException& e){
         cout << "  " << e << endl;
@@ -179,6 +183,10 @@ bool simpleAcceptTest(){
 int main(int argc, char* argv[]){
     cout << "Starting TcpSocket unit tests\n";
     simpleAcceptTest();
+    cout << "  Sleeping...";
+    sleep(100);
+
+
 }
 
 

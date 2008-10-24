@@ -1,6 +1,8 @@
 #ifndef EXCEPTION_H
 #define EXCEPTION_H
 
+const int MAXERRNOMSG=200;
+
 #include <iostream>
 #include <string>
 
@@ -10,11 +12,11 @@ public:
     Exception(const char* s, int err);
     virtual ~Exception();
 
-protected:
+private:
     const std::string& message;
     const int errno;
 
-    //TODO: falta aqui o metodo que converte isto em string
+    friend std::ostream& operator<<(std::ostream& os, const Exception& e);
 };
 
 class SocketException : public Exception {

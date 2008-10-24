@@ -18,7 +18,7 @@ public:
 
     // Server initialization
     void bind (const int port);
-    void listen() const;
+    void listen();
     TcpSocket& accept() const;
 
     // Data Transimission
@@ -26,10 +26,11 @@ public:
     void recv ( std::string& ) const;
 
     // Check status
+    bool fresh() const;
     bool bound() const;
-    bool connected() const;
     bool listening() const;
-
+    bool connected() const;
+    bool closed() const;
 
 private:
 
@@ -42,13 +43,13 @@ private:
     const int          sockfd;
 
     // Status
-    enum status_t {BOUND=1, LISTENING, CONNECTED} status;
+    enum status_t {FRESH=0, BOUND, LISTENING, CONNECTED, CLOSED} status;
     enum status_t getStatus();
     void setStatus (enum status_t status);
 
     // Printing
-    std::string& printStatus() const;
-    std::ostream& out(std::ostream& os) const;
+    const std::string& printStatus() const;
+    friend std::ostream& operator<<(std::ostream& os, const TcpSocket& sock);
 };
 
 #endif // SOCKET_H
