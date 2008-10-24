@@ -4,8 +4,8 @@
 #include <string>
 
 const int MAXHOSTNAME = 200;
-const int MAXCONNECTIONS = 5;
-const int MAXRECV = 500;
+const int DEFAULT_MAX_RECV = 512;
+const int DEFAULT_MAX_CONNECTIONS = 5;
 
 class TcpSocket{
 public:
@@ -23,7 +23,8 @@ public:
 
     // Data Transimission
     void send ( const std::string ) const;
-    void recv ( std::string& ) const;
+
+    std::string::size_type readline(std::string& result, const int howmany = DEFAULT_MAX_RECV) const;
 
     // Check status
     bool fresh() const;
@@ -42,6 +43,9 @@ private:
     const socklen_t&   socklen;
     const int          sockfd;
 
+    // Listen queue
+    const int max_connections;
+
     // Status
     enum status_t {FRESH=0, BOUND, LISTENING, CONNECTED, CLOSED} status;
     enum status_t getStatus();
@@ -50,6 +54,9 @@ private:
     // Printing
     const std::string& printStatus() const;
     friend std::ostream& operator<<(std::ostream& os, const TcpSocket& sock);
+
+    // Data Transmission
+    std::string& read_buffer;
 };
 
 #endif // SOCKET_H
