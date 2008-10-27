@@ -3,7 +3,6 @@
 #include <cmath> // fmax
 
 // FIXME: remove this dependency. Make classes
-#include "unpthread.h"
 #include "PrethreadedConnectionManager.h"
 
 using namespace std;
