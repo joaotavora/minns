@@ -3,6 +3,11 @@
 Thread::Thread(Runnable& h) throw ()
     : handler(h), tid(NULL) {}
 
+~Thread::Thread(){
+    delete &h;
+}
+
+
 void Thread::run() throw (ThreadException){
     if ((errno =
             pthread_create(&tid, NULL, &(Thread::helper), (void *) &handler)) != 0)
@@ -27,6 +32,34 @@ void Thread::unlock(pthread_mutex_t& t) const throw (ThreadException){
 void* Thread::helper(void* args){
     return (static_cast<Runnable *>(args))->main();
 }
+
+// Runnable abstract nested class
+void* Thread::Runnable::main(){}
+
+// ThreadException nested class
+
+Thread::ThreadException::ThreadException(const char* s)
+    : std::runtime_error(s) {}
+
+Thread::ThreadException::ThreadException(int i, const char* s)
+    : std::runtime_error(s), errno_number(i) {}
+
+std::ostream& operator<<(std::ostream& os, const Thread::ThreadException& e){
+    std::string s("[Exception: ");
+    s += e.what();
+
+    if (e.errno_number != 0){
+        s += ": ";
+        char buff[Thread::ThreadException::MAXERRNOMSG];
+        strerror_r(e.errno_number, buff, Thread::ThreadException::MAXERRNOMSG);
+        s += buff;
+    };
+    s += "]";
+
+    return os << s;
+}
+
+
 
 // unit tests
 
@@ -70,9 +103,9 @@ bool simpleRunnableTest() throw (){
     }
 }
 
-int main(int argc, char* argv[]){
-    cout << "Starting Thread unit tests\n";
-    simpleRunnableTest();
-    cout << "Done with Thread unit tests\n";
-}
+// int main(int argc, char* argv[]){
+//     cout << "Starting Thread unit tests\n";
+//     simpleRunnableTest();
+//     cout << "Done with Thread unit tests\n";
+// }
 

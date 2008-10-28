@@ -1,22 +1,15 @@
-#include "unpthread.h"
 #include "EchoHandler.h"
 
-#define MAXN    16384           /* max #bytes that a client can request */
-
-void EchoHandler::handle(int sockfd){
-    int                 ntowrite;
-    ssize_t             nread;
-    char                line[MAXLINE], result[MAXN];
-
-    for ( ; ; ) {
-        if ( (nread = Readline(sockfd, line, MAXLINE)) == 0)
-            return;             /* connection closed by other end */
-
-        /* 4line from client specifies #bytes to write back */
-        ntowrite = atol(line);
-        if ((ntowrite <= 0) || (ntowrite > MAXN))
-            err_quit("client request for %d bytes", ntowrite);
-
-        Writen(sockfd, result, ntowrite);
+void EchoHandler::handle(TcpSocket& connected){
+    string in;
+    cout << "  Starting EchoHandler::handle()..." << endl;
+    while(1){
+        cout << "  Reading one line from " << connected << endl;
+        connected >> in;
+        cout << "  Echoing back " << in << " to " << connected << endl;
+        connected << in;
     }
 }
+
+
+

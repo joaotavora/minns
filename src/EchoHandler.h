@@ -3,9 +3,9 @@
 
 #include "ConnectionHandler.h"
 
-class EchoHandler : public ConnectionHandler {
+class EchoHandler {
 public:
-    void handle(int connfd);
+    void handle(TcpSocket& connected);
 };
 
 #endif // ECHO_HANDLER_H

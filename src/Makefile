@@ -3,33 +3,27 @@ LDFLAGS =   # -lunp
 LDLIBS  =   # -L$(BASE)/vendor/unp/lib
 INC     =   # -I$(BASE)/vendor/unp/include
 
-OBJS =	TcpServer.o EchoServer.o \
-	ConnectionManager.o PrethreadedConnectionManager.o \
-	ConnectionHandler.o EchoHandler.o
-
 CXXFLAGS += $(INC) 
 
 all : minns
 
-minns: $(OBJS) $(LIBS)
-	$(LINK.cpp) $(OBJS) $(LDLIBS) -o $@
+minns: DnsServer.o UdpSocket.o Socket.o DnsResolver.o $(LIBS)
+	$(LINK.cpp) $^ $(LDLIBS) -o $@
 
-TcpServer.o: TcpServer.cpp TcpServer.h ConnectionManager.h ConnectionHandler.h
-ConnectionHandler.o: ConnectionHandler.h
-ConnectionManager.o: ConnectionManager.h
-EchoServer.o: EchoServer.cpp EchoServer.h TcpServer.h ConnectionManager.h ConnectionHandler.h
-EchoHandler.o: EchoHandler.cpp EchoHandler.h ConnectionHandler.h
-PrethreadedConnectionManager.o: PrethreadedConnectionManager.cpp PrethreadedConnectionManager.h ConnectionManager.h ConnectionHandler.h
+echo: EchoServer.o TcpSocket.o Socket.o Thread.o $(LIBS)
+	$(LINK.cpp) $^ $(LDLIBS) -o $@
 
+EchoServer.o: EchoServer.cpp EchoServer.h TcpSocket.h Socket.h Thread.h
+DnsServer.o: DnsServer.cpp DnsServer.h UdpSocket.h Socket.h DnsResolver.h
 
 Socket.o: Socket.cpp Socket.h
 TcpSocket.o: TcpSocket.cpp TcpSocket.h Socket.h
 UdpSocket.o: UdpSocket.cpp UdpSocket.h Socket.h
-
 Thread.o: Thread.cpp Thread.h
+DnsResolver.o: DnsResolver.cpp DnsResolver.h
 
 clean: 
-	rm -rf *.o minns *.dSYM
+	rm -rf *.o minns echo *.dSYM
 
 ## third party libs, will probably get rid of this soon
 
