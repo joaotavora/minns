@@ -20,7 +20,13 @@ ConnectionManager.o: ConnectionManager.h
 EchoServer.o: EchoServer.cpp EchoServer.h TcpServer.h ConnectionManager.h ConnectionHandler.h
 EchoHandler.o: EchoHandler.cpp EchoHandler.h ConnectionHandler.h
 PrethreadedConnectionManager.o: PrethreadedConnectionManager.cpp PrethreadedConnectionManager.h ConnectionManager.h ConnectionHandler.h
-TcpSocket.o: TcpSocket.cpp TcpSocket.h 
+
+
+Socket.o: Socket.cpp Socket.h
+TcpSocket.o: TcpSocket.cpp TcpSocket.h Socket.h
+UdpSocket.o: UdpSocket.cpp UdpSocket.h Socket.h
+
+Thread.o: Thread.cpp Thread.h
 
 clean: 
 	rm -rf *.o minns *.dSYM

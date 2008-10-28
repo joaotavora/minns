@@ -1,17 +1,3 @@
-// TODO:
-//
-//  * figure out if the socklen member is really important...
-//  * check why address on listening socket is always '0.2.134.39'
-//  * check why address on either socket is always displayed as '0.0.0.0'
-
-//  * verify automatic deletion and destructor call of temporary *new Object expressions. DONE THEY DONT GET DELETED!
-//  * inline some functions, in the cpp file DONE
-//  * add exception specifications !!!! DONE
-//  * consider embedded member objects rather than reference member objects DONE
-//  * don't throw exceptions in the constructor, or make sure all member objects are cleaned up DONE
-//  * don't throw exceptions in the destructor, or make sure to catch them DONE
-//  * find out about the standard c++ exception hiearachy. make SocketException nested in TcpSocket DONE
-
 // stdl includes
 
 #include <iostream>
@@ -25,20 +11,16 @@ using namespace std;
 
 // Class members definition
 
-TcpSocket::TcpSocket() throw (TcpSocket::SocketException)
-    : socklen(sizeof(sockaddr_in)),
-      sockfd(socket (AF_INET, SOCK_STREAM, 0)),
-      max_connections(DEFAULT_MAX_CONNECTIONS),
-      status(Status::FRESH),
-      max_receive(DEFAULT_MAX_RECV)
+TcpSocket::TcpSocket() throw (Socket::SocketException)
+    :
+    Socket(socket (AF_INET, SOCK_STREAM, 0)),
+    max_receive(DEFAULT_MAX_RECV)
 {
+    // cout << "TcpSocket ctor\n";
 
     if (sockfd == -1){
-        cleanup();
         throw SocketException(errno, "Could not create socket");
     }
-
-    bzero(&sockaddr, sizeof(struct sockaddr_in));
 
     int on;
     if (setsockopt (sockfd,
@@ -47,92 +29,57 @@ TcpSocket::TcpSocket() throw (TcpSocket::SocketException)
             (const char*) &on,
             sizeof (on)) != 0)
     {
-        cleanup();
         throw SocketException(errno, "Could not setsockopt");
     }
 }
 
-TcpSocket::TcpSocket(int fd, sockaddr_in& addr, socklen_t& len, Status::status_t state)
-    : sockaddr(sockaddr),
-      socklen(len),
-      sockfd(fd),
-      max_connections(DEFAULT_MAX_CONNECTIONS),
-      status(state),
-      max_receive(DEFAULT_MAX_RECV) {}
+TcpSocket::TcpSocket(int fd, SocketAddress& addr)
+    :
+    Socket(fd,addr),
+    max_receive(DEFAULT_MAX_RECV) {
+    // cerr << "  TcpSocket ctor\n";
+    }
 
 TcpSocket::~TcpSocket(){
-    // cout << "TcpSocket dtor for: " << this << endl;
-    cleanup();
-    if (!status.closed()){
-        cerr << "TcpSocket: warning: closing socket in dtor\n";
-        try {
-            close();
-        } catch (SocketException& e) {
-            cerr << "TcpSocket: warning: dtor caught exception" << e;
-        }
-    }
+    // cout << "TcpSocket dtor for: " << *this << endl;
+    for (unsigned int i = 0; i < connected.size(); i++)
+        delete connected[i];
+    connected.clear();
 }
 
-void TcpSocket::cleanup(){}
+void TcpSocket::connect(const string& host, const int port) throw (SocketException){
+    SocketAddress toClient(host.c_str(), port);
 
-void TcpSocket::connect(const string host, const int port) throw (SocketException){
-    if (status.bound()) throw SocketException("Socket already bound");
+    sockaddr_in clientaddress;
+    clientaddress.sin_family         = AF_INET;
+    clientaddress.sin_port           = htons(port);
 
-    sockaddr.sin_family = AF_INET;
-    sockaddr.sin_port   = htons(port);
+    inet_pton (AF_INET, host.c_str(), &clientaddress.sin_addr);
 
-    if (inet_pton(AF_INET, host.c_str(), &sockaddr.sin_addr) == -1)
-        throw SocketException(errno, "Could not convert address");
+    // if (::connect(sockfd, reinterpret_cast<struct sockaddr *>(&clientaddress), sizeof(sockaddr_in)) != 0)
+    //     throw SocketException(errno, "Could not connect()");
 
-    if (::connect(sockfd, reinterpret_cast<struct sockaddr *>(&sockaddr), sizeof(sockaddr)) != 0)
+    if (::connect(sockfd, reinterpret_cast<struct sockaddr *>(&toClient.sockaddr), sizeof(sockaddr_in)) != 0)
         throw SocketException(errno, "Could not connect()");
-
-    status.setStatus(Status::CONNECTED);
 }
 
-void TcpSocket::bind(const int port) throw (SocketException){
-    if (status.bound() or status.listening() or status.connected() ) throw SocketException("Socket already bound");
-
-    sockaddr.sin_family         = AF_INET;
-    sockaddr.sin_addr.s_addr    = INADDR_ANY;
-    sockaddr.sin_port           = htons(port);
-
-    if (::bind(sockfd, reinterpret_cast<struct sockaddr *>(&sockaddr), sizeof(sockaddr)) != 0)
-        throw SocketException(errno, "Could not bind()");
-
-    status.setStatus(Status::BOUND);
-}
-
-void TcpSocket::listen() throw (SocketException){
-    if (!status.bound()) throw SocketException("Socket isn't bound yet");
-
+void TcpSocket::listen(const int max_connections) throw (SocketException){
     if (::listen (sockfd, max_connections) != 0)
         throw SocketException(errno, "Cound not accept()");
-
-    status.setStatus(Status::LISTENING);
 }
 
-TcpSocket& TcpSocket::accept() const throw (SocketException){
-    if (!status.listening()) throw SocketException("Socket isn't listening");
-
+TcpSocket* TcpSocket::accept() throw (SocketException){
     int clifd;
-    sockaddr_in cliaddr;
-    socklen_t cliaddrlen = sizeof(sockaddr_in);
 
-    bzero(&cliaddr, sizeof(sockaddr_in));
-
+    SocketAddress& fromClient = *new SocketAddress();
     if ((clifd = ::accept (sockfd,
-                reinterpret_cast<struct sockaddr *>(&cliaddr),
-                &cliaddrlen)) == -1)
+                reinterpret_cast<struct sockaddr *>(&fromClient.sockaddr),
+                &fromClient.socklen)) == -1)
         throw SocketException("Could not accept()");
 
-    return *new TcpSocket(clifd, cliaddr, cliaddrlen, Status::CONNECTED);
-}
-
-void TcpSocket::close() throw (SocketException){
-    status.setStatus(Status::CLOSED);
-    if (::close(sockfd) != 0)
-        throw SocketException(errno, "Could not close socket");
+    TcpSocket* client = new TcpSocket(clifd, fromClient);
+    connected.push_back(client);
+    return client;
 }
 
 void TcpSocket::write(const string s) const throw (SocketException){
@@ -153,9 +100,6 @@ again:
 //
 //
 string::size_type TcpSocket::readline(std::string& retval, const char delimiter) throw (SocketException){
-    if (!status.connected())
-        throw SocketException("Socket not connected");
-
     int read_cnt = 0;
     int remaining=max_receive;
     char* temp= new char[max_receive];
@@ -207,62 +151,14 @@ void TcpSocket::setMaxReceive(const std::string::size_type howmany){max_receive=
 
 std::string::size_type TcpSocket::getMaxReceive() const{return max_receive;}
 
-// TcpSocket::SocketException nested class
-
-TcpSocket::SocketException::SocketException(const char* s)
-    : std::runtime_error(s) {}
-
-TcpSocket::SocketException::SocketException(int i, const char* s)
-    : std::runtime_error(s), errno_number(i) {}
-
-std::ostream& operator<<(std::ostream& os, const TcpSocket::SocketException& e){
-    string s("[Exception: ");
-    s += e.what();
-
-    if (e.errno_number != 0){
-        s += ": ";
-        char buff[TcpSocket::SocketException::MAXERRNOMSG];
-        strerror_r(e.errno_number, buff, TcpSocket::SocketException::MAXERRNOMSG);
-        s += buff;
-    };
-    s += "]";
-
-    return os << s;
-}
-
-// TcpSocket::Status nested class
-
-inline bool TcpSocket::Status::fresh() const {return id==FRESH;}
-
-inline bool TcpSocket::Status::bound() const { return id==BOUND;}
-
-inline bool TcpSocket::Status::listening() const {return id==LISTENING;}
-
-inline bool TcpSocket::Status::connected() const {return id==CONNECTED;}
-
-inline bool TcpSocket::Status::closed() const {return id==CLOSED;}
-
-inline void TcpSocket::Status::setStatus(const enum status_t newStatus) {
-    id=newStatus;
-}
-
-inline const string& TcpSocket::Status::printStatus() const {
-    static const std::string names[] =  {std::string("New or Unknown"),
-                                         std::string("Bound"),
-                                         std::string("Connected"),
-                                         std::string("Listening"),
-                                         std::string("Closed")};
-    return names[id];
-}
-
 // Non-member operator redefinition
 
-const TcpSocket& operator<<(const TcpSocket& ts, const std::string& s) throw (TcpSocket::SocketException){
+const TcpSocket& operator<<(const TcpSocket& ts, const std::string& s) throw (Socket::SocketException){
     ts.write(s);
     return ts;
 }
 
-bool operator>>(TcpSocket& ts, std::string& towriteto) throw (TcpSocket::SocketException){
+bool operator>>(TcpSocket& ts, std::string& towriteto) throw (Socket::SocketException){
     string temp;
     std::string::size_type written = ts.readline(temp);
     towriteto.append(temp);
@@ -270,16 +166,7 @@ bool operator>>(TcpSocket& ts, std::string& towriteto) throw (TcpSocket::SocketE
 }
 
 std::ostream& operator<<(std::ostream& os, const TcpSocket& sock){
-    string s = "[TcpSocket: status=\'" + sock.status.printStatus();
-    if (!(sock.status.fresh() or sock.status.closed())){
-        s += "\' address=\'";
-        char buff[TcpSocket::MAXHOSTNAME];
-        if (inet_ntop(AF_INET, &sock.sockaddr.sin_addr, buff, TcpSocket::MAXHOSTNAME)!=NULL)
-            s += buff;
-        else
-            s += "<internal error>";
-    } else { s += " address=irrevant!"; }
-    s += "]";
-
-    return os << s;
+    return os << "[TCP " << (const Socket&) sock << "]";
 }
+
+

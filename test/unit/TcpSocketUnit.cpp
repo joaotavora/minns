@@ -13,15 +13,14 @@ using namespace std;
 
 const int LOCALPORT = 34343;
 
-TcpSocket& bindListenAccept(int port, TcpSocket& serverSocket){
-    serverSocket.bind(port);
+TcpSocket* bindListenAccept(int port, TcpSocket& serverSocket){
+    serverSocket.bind_any(port);
     serverSocket.listen();
 
     cout << "  Server socket bound: " << serverSocket << endl
          << "  Server accepting connections\n";
-    // TODO: fork a child with connect here!
-    TcpSocket& connected =  serverSocket.accept();
-    cout << "  Connection accepted: " << connected << endl;
+    TcpSocket* connected =  serverSocket.accept();
+    cout << "  Connection accepted: " << *connected << endl;
     return connected;
 }
 
@@ -46,10 +45,11 @@ bool simpleAcceptConnectTest(){
         try {
             TcpSocket toServer;
             cout << "  Forked child connecting to server\n";
-            toServer.connect("localhost",LOCALPORT);
+            toServer.connect("127.0.0.1",LOCALPORT);
             cout << "  Forked child connected: " << toServer << endl;
             cout << "  Forked child closing connection to server\n";
             toServer.close();
+            cout << "  Forked child exiting\n";
             exit(0);
         } catch (TcpSocket::SocketException& e) {
             cout << "  Forked child exception: " << e << endl;
@@ -60,7 +60,7 @@ bool simpleAcceptConnectTest(){
     // server code
     try {
         TcpSocket serverSocket;
-        TcpSocket& toClient = bindListenAccept(LOCALPORT, serverSocket);
+        TcpSocket& toClient = *bindListenAccept(LOCALPORT, serverSocket);
         cout << "  Server closing connection to client\n";
         toClient.close();
         cout << "  Server closing listening socket\n";
@@ -89,12 +89,13 @@ bool readLinesFromClientTest(const int linesize=TcpSocket::DEFAULT_MAX_RECV){
         try {
             TcpSocket toServer;
             cout << "  Forked child connecting to server\n";
-            toServer.connect("localhost",LOCALPORT);
+            toServer.connect("127.0.0.1",LOCALPORT);
             cout << "  Forked child connected: " << toServer << endl;
             cout << "  Forked child sending to server\n";
             toServer.write(message);
             cout << "  Forked child closing connection to server\n";
             toServer.close();
+            cout << "  Forked child exiting\n";
             exit(0);
         } catch (std::exception& e) {
             cout << "  Forked child exception: " << e.what() << endl;
@@ -106,7 +107,7 @@ bool readLinesFromClientTest(const int linesize=TcpSocket::DEFAULT_MAX_RECV){
     // server code
     try {
         TcpSocket serverSocket;
-        TcpSocket& connectedSocket = bindListenAccept(LOCALPORT, serverSocket);
+        TcpSocket& connectedSocket = *bindListenAccept(LOCALPORT, serverSocket);
         std::string clientmessage;
         cout << "  Reading one (at most " << linesize << " chars long) line from client\n";
 
@@ -123,6 +124,8 @@ bool readLinesFromClientTest(const int linesize=TcpSocket::DEFAULT_MAX_RECV){
         if (!(clientmessage.compare(message) == 0))
             throw std::runtime_error("Messages dont match");
         checkChild(child);
+        serverSocket.close();
+        connectedSocket.close();
         cout << "Done!\n";
         return true;
     } catch (std::exception& e) {
@@ -134,7 +137,8 @@ bool readLinesFromClientTest(const int linesize=TcpSocket::DEFAULT_MAX_RECV){
 
 int main(int argc, char* argv[]){
     cout << "Starting TcpSocket unit tests\n";
-    // simpleAcceptConnectTest();
+
+    simpleAcceptConnectTest();
     readLinesFromClientTest(1);
     readLinesFromClientTest(5);
     readLinesFromClientTest(38);
