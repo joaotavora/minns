@@ -5,12 +5,11 @@ using namespace std;
 void EchoServer::handle(TcpSocket& connected) throw (Socket::SocketException) {
     string in;
     cout << "  Starting EchoHandler::handle()..." << endl;
-    while(1){
-        cout << "  Reading one line from " << connected << endl;
-        connected >> in;
+    while (connected >> in) {
         cout << "  Echoing back " << in << " to " << connected << endl;
         connected << in;
     }
+    cout << "  Exiting EchoHandler::handle()..." << endl;
 }
 
 void EchoServer::start(){
@@ -28,7 +27,8 @@ void EchoServer::start(){
         try {
             connected = serv.accept();
             handle(*connected);
-        } catch (Socket::SocketException& e) {
+
+        } catch (std::exception& e) {
             cerr << "  Caught exception: " << e.what() << endl;
             cout << "  Trying another accept." << endl;
             connected->close();
@@ -41,4 +41,5 @@ int main(){
     EchoServer e;
 
     e.start();
+    return 0;
 }

@@ -29,6 +29,7 @@ public:
     // Runnable nested class
     class Runnable {
     public:
+        Runnable();
         virtual ~Runnable();
         virtual void* main();
     };
@@ -36,11 +37,23 @@ public:
     Thread(Runnable& handler) throw ();
     ~Thread();
 
+    // Mutex nested class
+    class Mutex {
+    public:
+        Mutex() throw(ThreadException);
+        ~Mutex();
+        void lock() throw (ThreadException);
+        void unlock() throw (ThreadException);
+    private:
+        // private copy constructor
+        Mutex(const Mutex& src);
+        pthread_mutex_t mutex;
+    };
+
     // pthread wrappers
     void run() throw (ThreadException);
     void join(void* retval) throw (ThreadException);
-    void lock(pthread_mutex_t& t) const throw (ThreadException);
-    void unlock(pthread_mutex_t& t) const throw (ThreadException);
+
 
 private:
     Runnable& handler;

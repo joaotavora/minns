@@ -161,7 +161,7 @@ const TcpSocket& operator<<(const TcpSocket& ts, const std::string& s) throw (So
 bool operator>>(TcpSocket& ts, std::string& towriteto) throw (Socket::SocketException){
     string temp;
     std::string::size_type written = ts.readline(temp);
-    towriteto.append(temp);
+    towriteto.assign(temp);
     return (written != std::string::npos);
 }
 
