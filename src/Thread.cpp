@@ -52,7 +52,7 @@ void Thread::Mutex::lock() throw (ThreadException){
 Thread::Runnable::Runnable() {}
 Thread::Runnable::~Runnable() {}
 
-void* Thread::Runnable::main(){}
+void* Thread::Runnable::main(){return NULL;}
 
 // ThreadException nested class
 

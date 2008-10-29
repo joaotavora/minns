@@ -1,14 +1,14 @@
-LDFLAGS =   # -lunp
-LDLIBS  =   # -L$(BASE)/vendor/unp/lib
-INC     =   # -I$(BASE)/vendor/unp/include
-
-CXXFLAGS += $(INC)
+# Try to figure out undefined values
+BASE ?= ../
+CXXFLAGS ?= -g -Wall -pedantic
 
 LIBDIR  ?= $(CURDIR)
 BINDIR  ?= $(CURDIR)
 
 MAKELIB ?= libtool -o $(LIBDIR)/$@ $^
 MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDOR)/$@
+
+# Specific to this makefile
 
 all : minns
 
@@ -27,12 +27,11 @@ libtcpsocket.a: TcpSocket.o Socket.o
 libudpsocket.a: UdpSocket.o Socket.o
 	$(MAKELIB)
 
-clean: 
-	rm -rf *.o $(BINDIR)/minns $(BINDIR)/echo *.dSYM
+clean: cleanlibs 
+	rm -rf *.o minns echo *.dSYM
 
 cleanlibs:
-	rm -rf $(LIBDIR)/libthread.a $(LIBDIR)/libtcpsocket.a $(LIBDIR)/libudpsocket.a
-
+	rm -rf libthread.a libtcpsocket.a libudpsocket.a
 
 # Dependencies
 
