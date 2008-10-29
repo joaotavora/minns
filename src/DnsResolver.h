@@ -19,7 +19,7 @@ class DnsResolver {
 public:
 
     struct DnsEntry {
-        in_addr_t ip;
+        struct in_addr ip;
         std::vector<std::string> aliases;
     };
 
@@ -34,10 +34,10 @@ public:
         class map_value_t {
         public:
             map_value_t(
-                in_addr_t i,
+                struct in_addr i,
                 std::list<map_t::iterator>::iterator li)
                 : ip(i),listiter(li) {}
-            in_addr_t ip;
+            struct in_addr ip;
             std::list<map_t::iterator>::iterator listiter;
         };
         typedef std::list<map_t::iterator> list_t;
@@ -46,9 +46,13 @@ public:
         Cache(unsigned int maxsize);
         ~Cache();
 
-        in_addr_t* lookup(const std::string& address);
-        in_addr_t* insert(std::string& alias, in_addr_t ip);
+        struct in_addr* lookup(const std::string& address);
+        struct in_addr* insert(std::string& alias, struct in_addr ip);
 
+        std::string local_list_head() const;
+        std::string local_list_tail() const;
+
+        friend std::ostream& operator<<(std::ostream& os, const DnsResolver& dns);
     private:
         map_t local_map;
         list_t local_list;
@@ -59,7 +63,7 @@ public:
     public:
         ResolveException(int i, const char* s);
         ResolveException(const char* s);
-        int errno() const;
+        int what_errno() const;
         friend std::ostream& operator<<(std::ostream& os, const ResolveException& e);
     private:
         int errno_number;
@@ -72,12 +76,11 @@ public:
 // uses inet_ntop, delegates to resolve(const std::string&)
     std::string* resolve(const std::string& address, std::string& result) throw (ResolveException);
 // uses inet_pton
-    in_addr_t* resolve(const std::string& address) throw (ResolveException);
-
+    struct in_addr* resolve(const std::string& address) throw (ResolveException);
     static int parse_line(const std::string& line, DnsEntry& parsed);
 
+    friend std::ostream& operator<<(std::ostream& os, const DnsResolver& dns);
 private:
-    static const unsigned int MAXIPSTRING = 20; // actually 15 + 1 should do it
     static const unsigned int DEFAULT_CACHE_SIZE = 20; // actually 15 + 1 should do it
     static const unsigned int MAX_ALIASES = 5;
 

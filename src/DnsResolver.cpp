@@ -1,3 +1,7 @@
+// libc includes
+
+#include <errno.h>
+
 // stdl includes
 
 #include <sstream>
@@ -18,19 +22,17 @@ DnsResolver::DnsResolver(const std::string& filename, int maxsize = DEFAULT_CACH
 
 
 string* DnsResolver::resolve(const std::string& address, std::string& dst) throw (ResolveException) {
-    static char buff[DnsResolver::MAXIPSTRING];
+    static char buff[INET_ADDRSTRLEN];
 
-    in_addr_t* result = resolve(address);
+    struct in_addr* result = resolve(address);
 
     if (result == NULL) return NULL;
 
-    in_addr temp= inet_makeaddr(*result,0);
-
     if (inet_ntop (
             AF_INET,
-            reinterpret_cast<void *>(&temp),
+            reinterpret_cast<void *>(result),
             buff,
-            sizeof(in_addr)) == NULL)
+            sizeof(buff)) == NULL)
         throw ResolveException("Could not place network address in a string");
     dst.assign(buff);
     return &dst;
@@ -43,10 +45,14 @@ DnsResolver::~DnsResolver(){
 }
 
 
-in_addr_t* DnsResolver::resolve(const std::string& address) throw (ResolveException) {
+struct in_addr* DnsResolver::resolve(const std::string& address) throw (ResolveException) {
     // lookup `address' in the cache
-    in_addr_t* result = cache.lookup(address);
-    if (result != NULL) return result;
+    struct in_addr* result = cache.lookup(address);
+    if (result != NULL) {
+        cerr <<  "        (Cache HIT! for \'" << address << "\')\n";
+        return result;
+    }
+    cerr <<  "        (Cache MISS for \'" << address << "\')\n";
 
     // lookup `address' in the file, starting from wherever it was
     // FIXME: should go round the file exactly once
@@ -55,10 +61,13 @@ in_addr_t* DnsResolver::resolve(const std::string& address) throw (ResolveExcept
     while (getline(file, line)){
         if (parse_line(line, parsed) != -1){
             for (vector<string>::iterator iter=parsed.aliases.begin(); iter != parsed.aliases.end(); iter++){
-                in_addr_t* aux = cache.insert(*iter, parsed.ip);
+                struct in_addr* aux = cache.insert(*iter, parsed.ip);
                 if (address.compare(*iter) == 0) result = aux;
             }
-            if (result != NULL) return result;
+            if (result != NULL) {
+                cerr <<  "        (File  HIT! for \'" << address << "\')\n";
+                return result;
+            }
         }
     }
     return NULL;
@@ -71,15 +80,33 @@ int DnsResolver::parse_line(const std::string& line, DnsEntry& parsed){
     stringstream ss(line);
 
     if (ss >> buf){
-        parsed.ip = inet_addr(buf.c_str());
-        if (parsed.ip == INADDR_NONE) return -1;
-    } else return -1;
+        int retval = inet_pton(AF_INET, buf.c_str(), reinterpret_cast<char *>(&parsed.ip));
+        switch (retval){
+        case 0:
+            return -1;
+        case -1:
+            throw ResolveException(errno, "Error in inet_pton()");
+        default:
+            break;
+        }
+    }  else return -1;
 
     while ((ss >> buf) and (parsed.aliases.size() < MAX_ALIASES))
         parsed.aliases.push_back(buf);
 
     return parsed.aliases.size();
 }
+
+std::ostream& operator<<(std::ostream& os, const DnsResolver& dns){
+    return os <<
+        "[DnsResolver: " <<
+        "msize=\'" << dns.cache.local_map.size() << "\' " <<
+        "lsize=\'" << dns.cache.local_list.size() << "\' " <<
+        "head=\'" << dns.cache.local_list_head()  << "\' " <<
+        "tail=\'" << dns.cache.local_list_tail()  << "\' " <<
+        "]";
+}
+
 
 // Cache nested class
 
@@ -90,7 +117,7 @@ DnsResolver::Cache::~Cache(){
     local_list.clear();
 }
 
-in_addr_t *DnsResolver::Cache::lookup(const string& address){
+struct in_addr *DnsResolver::Cache::lookup(const string& address){
     // lookup the key in the map
     map_t::iterator i = local_map.find(address);
     if (i != local_map.end() ){
@@ -104,7 +131,7 @@ in_addr_t *DnsResolver::Cache::lookup(const string& address){
     return NULL;
 }
 
-in_addr_t* DnsResolver::Cache::insert(string& alias, in_addr_t ip){
+struct in_addr* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
 
     // add element to map and keep an iterator to it. point the newly
     // map_value_t to local_list.begin(), but that will be made invalid soon.
@@ -132,6 +159,20 @@ in_addr_t* DnsResolver::Cache::insert(string& alias, in_addr_t ip){
     return &(temppair.first->second.ip);
 }
 
+string DnsResolver::Cache::local_list_head() const {
+    if (local_list.size() > 0)
+        return (local_list.front())->first;
+    else
+        return "<none>";
+}
+
+string DnsResolver::Cache::local_list_tail() const {
+    if (local_list.size() > 0)
+        return (local_list.back())->first;
+    else
+        return "<none>";
+}
+
 // ResolveException nested class
 
 DnsResolver::ResolveException::ResolveException(const char* s)
@@ -140,7 +181,7 @@ DnsResolver::ResolveException::ResolveException(const char* s)
 DnsResolver::ResolveException::ResolveException(int i, const char* s)
     : std::runtime_error(s), errno_number(i) {}
 
-int DnsResolver::ResolveException::errno() const {return errno_number;}
+int DnsResolver::ResolveException::what_errno() const {return errno_number;}
 
 std::ostream& operator<<(std::ostream& os, const DnsResolver::ResolveException& e){
     std::string s("[Exception: ");
@@ -159,16 +200,26 @@ std::ostream& operator<<(std::ostream& os, const DnsResolver::ResolveException& 
 
 // Unit tests
 
-int main(){
+string& tryResolve(DnsResolver& resolver, const string& what) throw (DnsResolver::ResolveException){
+    static string result;
+
+    if (resolver.resolve(what, result) != NULL)
+        cout << "  Success! " << what << " resolved to " << result << "\n";
+    else
+        cout << "  Could not resolve " << what << "\n";
+    return result;
+}
+
+
+int main(int argc, char* argv[]){
     try {
         DnsResolver a("testhosts.txt");
         string result;
 
-        if (a.resolve("somehost", result) != NULL)
-            cout << "  Sucess! resolved to " << result << "\n";
-        else
-            cout << "  Could not resolve!\n";
-
+        for (int i=1; i < argc; i++){
+            tryResolve(a, argv[i]);
+            cout << "  a = " << a << endl;
+        }
     } catch (std::exception& e) {
         cerr << "  Exception: " << e.what() << endl;
     }
