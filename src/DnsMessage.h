@@ -16,10 +16,13 @@ public:
         static const ssize_t MAXERRNOMSG=200;
     };
 
-    class QueryNotSupportedException : ParseException {
+    class NotSupportedException : ParseException {
+    public:
+        NotSupportedException(const char* s)
+            : ParseException(s) {}
     };
 
-    DnsMessage(const char *buff, const size_t size) throw (ParseException);
+    DnsMessage(char *buff, const size_t size) throw (ParseException);
     DnsMessage();
     ~DnsMessage();
 
@@ -28,14 +31,15 @@ public:
     // friends
     friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
 
+
 private:
 
-        typedef uint16_t u_int16;
+    static size_t parse_qname(char* buff, size_t buflen, char* resulting_thing);
+
+    typedef uint16_t u_int16;
     typedef uint32_t u_int32;
     typedef char u_int4;
     typedef char u_int3;
-
-    DnsMessage(DnsMessage& src);
 
     DnsMessage(DnsMessage& src);
 
@@ -76,11 +80,15 @@ private:
     };
     class DnsQuestion {
         // QNAME(variable, crazy structure): domain name asked for
-        char* QNAME;
+        std::string QNAME;
         // QTYPE(32 bits): query type - only DNS_TYPE_A supported
         uint16_t QTYPE;
         // QCLASS(16 bits): query class - only CLASS_IN supported
         uint16_t QCLASS;
+
+    public:
+        DnsQuestion(const char* domainname, uint16_t _qtype, uint16_t _qclass);
+
     };
     class ResourceRecord {
         // NAME(variable, crazy structure): domain name the resource record is bound to. defaults to root

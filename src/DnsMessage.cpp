@@ -1,7 +1,18 @@
+// libc includes
+#include <arpa/inet.h>
+
+// stdl includes
+#include <string>
+
 // Project includes
 #include "DnsMessage.h"
 
-// DnsMessage nested class
+// usings
+using namespace std;
+
+// DnsMessage class, full of bits
+//
+// This is my beautiful binary, hex, decimal reference
 //
 // 0000   x0  0
 // 0001   x1  1
@@ -19,15 +30,7 @@
 // 1101   xD 13
 // 1110   xE 14
 // 1111   xF 15
-
-
 // 1100 0000 0xC0 192
-
-
-
-
-
-
 
 
 // bufflen is the total length of QNAME of buff to consider,
@@ -40,12 +43,13 @@
 //              m y d o m a i n . c o m 0
 //
 //
-size_t DnsMessage::parseQNAME(char* buff, size_t buflen, char* resulting_thing) {
+size_t DnsMessage::parse_qname(char* buff, size_t buflen, char* resulting_thing) {
+    // total_len keeps the number of character processed
+    size_t total_len = 0;
+    // ptr should always point to beginning of a label. A special label whose first
+    // byte is 0 marks the end of this domain name
+    char* ptr = buff;
     while (true) {
-        size_t total_len = 0;
-        // Should always point to beginning of a label. A special label whose first
-        // byte is 0 marks the end of this domain name
-        char* ptr = buff;
         // check if we reached the end label
         if (*ptr == 0) {
             resulting_thing[total_len - 1] = '\0'; // null terminate the thing!
@@ -54,11 +58,11 @@ size_t DnsMessage::parseQNAME(char* buff, size_t buflen, char* resulting_thing) 
         // check if the topmost two bits are 00 as required
         if ((*ptr & 0xC0) != 0)
             throw ParseException("Unknown domain label type");
-        int label_len = (*ptr & 0x3F);
+        size_t label_len = (*ptr & 0x3F);
         if (label_len > (buflen - total_len - 2))
             throw ParseException("One label mentions more characters than exist");
 
-        strncpy(&ptr[1], &resulting_thing[total_len], label_len);
+        memcpy(&resulting_thing[total_len], &ptr[1], label_len);
 
         total_len += (1 + label_len);
         if (total_len >= 255)
@@ -70,7 +74,7 @@ size_t DnsMessage::parseQNAME(char* buff, size_t buflen, char* resulting_thing) 
     }
 }
 // len is the total size of data to consider
-DnsMessage::DnsMessage(const char *data, const size_t len) throw (ParseException){
+DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
     uint16_t
         question_count, // question count
         answer_count, // answer count
@@ -79,7 +83,7 @@ DnsMessage::DnsMessage(const char *data, const size_t len) throw (ParseException
 
     if (len < 12) throw ParseException("Buffer to small to hold DNS header");
 
-    ID = (uint16_t) &data[0];
+    ID = (uint16_t) htons(*(uint16_t*)&data[0]);
 
     QR = data[2] & 0x80;
 
@@ -105,12 +109,13 @@ DnsMessage::DnsMessage(const char *data, const size_t len) throw (ParseException
 
     Z = (data[3] & 0x70) >> 3;
 
+    // RCODE in queries is ignored
     RCODE = data[3] & 0x0F;
 
-    question_count = (uint16_t) data[4];
-    answer_count = (uint16_t) data[6];
-    authorities_count = (uint16_t) data[8];
-    ar_count = (uint16_t) data[10];
+    question_count    = (uint16_t) htons(*(uint16_t*)&data[4]);
+    answer_count      = (uint16_t) htons(*(uint16_t*)&data[6]);
+    authorities_count = (uint16_t) htons(*(uint16_t*)&data[8]);
+    ar_count          = (uint16_t) htons(*(uint16_t*)&data[10]);
 
   /* read question section */
 
@@ -119,12 +124,16 @@ DnsMessage::DnsMessage(const char *data, const size_t len) throw (ParseException
         if (pos >= len)
             throw ParseException("So many questions, so little buffer space!");
 
-        char *domainbuff = new char[len - pos - 4];b
-        int qname_len = parseQname(&data[12], len - pos - 4, domain);
+        char *domainbuff = new char[len - pos - 4];
+        int qname_len = parse_qname(&data[12], len - pos - 4, domainbuff);
 
         pos += qname_len;
 
-        questions.push_back(DnsQuestion(domainbuff, (uint16_t) &data[pos], (uint16_t) &data[pos + 2]));
+        questions.push_back(
+            DnsQuestion(
+                domainbuff,
+                (uint16_t) htons(*(uint16_t*)&data[pos]),
+                (uint16_t) htons(*(uint16_t*)&data[pos+2])));
 
         pos += 4;
 
@@ -132,10 +141,8 @@ DnsMessage::DnsMessage(const char *data, const size_t len) throw (ParseException
     }
 
   /* all other sections ignored */
-};
-
-    throw ParseException("Constructor not implemented yet");
 }
+
 
 DnsMessage::DnsMessage(){
 }
@@ -149,7 +156,14 @@ size_t DnsMessage::serialize(char*, unsigned long){
 
 size_t DnsMessage::serialize(char* buff, const size_t bufsize);
 
-// DnsResolver exception
+// DnsQuestion nested class
+
+DnsMessage::DnsQuestion::DnsQuestion(const char* domainname, uint16_t _qtype, uint16_t _qclass)
+    : QNAME(string(domainname)),
+      QTYPE(_qtype),
+      QCLASS(_qclass) {}
+
+// ParseException exception
 
 DnsMessage::ParseException::ParseException(const char* s) : std::runtime_error(s) {}
 

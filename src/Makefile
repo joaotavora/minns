@@ -38,7 +38,8 @@ cleanlibs:
 # Dependencies
 
 EchoServer.o: EchoServer.cpp EchoServer.h TcpSocket.h Socket.h Thread.h
-DnsServer.o: DnsServer.cpp DnsServer.h UdpSocket.h Socket.h DnsResolver.h
+DnsServer.o: DnsServer.cpp DnsServer.h UdpSocket.h Socket.h DnsResolver.h DnsMessage.h
+DnsMessage.o: DnsMessage.cpp DnsMessage.h
 
 Socket.o: Socket.cpp Socket.h
 TcpSocket.o: TcpSocket.cpp TcpSocket.h Socket.h
