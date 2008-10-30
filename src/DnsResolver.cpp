@@ -12,8 +12,12 @@
 
 using namespace std;
 
-DnsResolver::DnsResolver(const std::string& filename, int maxsize = DEFAULT_CACHE_SIZE)
+DnsResolver::DnsResolver(
+    const std::string& filename,
+    const unsigned int maxsize,
+    const unsigned int maxa) throw (ResolveException)
     : file(*new ifstream(filename.c_str(), ios::in)),
+      maxaliases(maxa),
       cache(*new Cache(maxsize))
 {
     if (file.fail())
@@ -101,7 +105,7 @@ struct in_addr* DnsResolver::resolve(const std::string& address) throw (ResolveE
     return NULL;
 }
 
-int DnsResolver::parse_line(const std::string& line, DnsEntry& parsed){
+int DnsResolver::parse_line(const std::string& line, DnsEntry& parsed) throw (ResolveException){
     if (line[0] == '#') return -1; // a # denotes a comment
 
     string buf;
@@ -119,7 +123,7 @@ int DnsResolver::parse_line(const std::string& line, DnsEntry& parsed){
         }
     }  else return -1;
 
-    while ((ss >> buf) and (parsed.aliases.size() < MAX_ALIASES))
+    while ((ss >> buf) and (parsed.aliases.size() < maxaliases))
         parsed.aliases.push_back(buf);
 
     return parsed.aliases.size();
@@ -216,17 +220,19 @@ DnsResolver::ResolveException::ResolveException(int i, const char* s)
 
 int DnsResolver::ResolveException::what_errno() const {return errno_number;}
 
-std::ostream& operator<<(std::ostream& os, const DnsResolver::ResolveException& e){
-    std::string s("[Exception: ");
-    s += e.what();
+const char * DnsResolver::ResolveException::what() const throw(){
+    string s = std::runtime_error::what();
 
-    if (e.errno_number != 0){
+    if (errno_number != 0){
         s += ": ";
         char buff[DnsResolver::ResolveException::MAXERRNOMSG];
-        strerror_r(e.errno_number, buff, DnsResolver::ResolveException::MAXERRNOMSG);
+        strerror_r(errno_number, buff, DnsResolver::ResolveException::MAXERRNOMSG);
         s += buff;
     };
-    s += "]";
+    return (s.c_str());
+}
 
-    return os << s;
+
+std::ostream& operator<<(std::ostream& os, const DnsResolver::ResolveException& e){
+    return os << "[ResolveException: " << e.what() << "]";
 }

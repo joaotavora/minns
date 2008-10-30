@@ -24,6 +24,7 @@ public:
     public:
         SocketException(int i, const char* s);
         SocketException(const char* s);
+        const char * what() const throw();
         friend std::ostream& operator<<(std::ostream& os, const SocketException& e);
     private:
         int errno_number;

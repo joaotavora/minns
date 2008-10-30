@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <string>
+#include <sstream>
 
 // Project includes
 
@@ -37,7 +38,11 @@ void Socket::bind_any(const int port) throw (SocketException){
     address.sockaddr.sin_port           = htons(port);
 
     if (::bind(sockfd, reinterpret_cast<struct sockaddr *>(&address.sockaddr), sizeof(sockaddr_in)) != 0)
-        throw SocketException(errno, "Could not bind()");
+    {
+        ostringstream ss;
+        ss << "Could not bind() to port " << port;
+        throw SocketException(errno, ss.str().c_str());
+    }
 }
 
 void Socket::close() throw (SocketException){
@@ -50,6 +55,7 @@ Socket::~Socket(){
     // cout << "Socket dtor for: " << *this << endl;
     if (!closed){
         try {
+            cerr << "Warning: closing socket" << *this << "in dtor!\n";
             close();
         } catch (SocketException& e) {
             cerr << "Socket: warning: dtor caught exception" << e;
@@ -59,33 +65,30 @@ Socket::~Socket(){
 }
 
 std::ostream& operator<<(std::ostream& os, const Socket& sock){
-    string s =
-        "[Socket: address=\'";
-
     return os << "[Socket: address=\'" << sock.address << "\']";
 }
 
 // Socket::SocketException nested class
 
-Socket::SocketException::SocketException(const char* s)
-    : std::runtime_error(s) {}
+Socket::SocketException::SocketException(const char* s) : std::runtime_error(s){}
 
-Socket::SocketException::SocketException(int i, const char* s)
+Socket::SocketException::SocketException(int i,const char* s)
     : std::runtime_error(s), errno_number(i) {}
 
-std::ostream& operator<<(std::ostream& os, const Socket::SocketException& e){
-    string s("[Exception: ");
-    s += e.what();
+const char * Socket::SocketException::what() const throw(){
+    string s = std::runtime_error::what();
 
-    if (e.errno_number != 0){
+    if (errno_number != 0){
         s += ": ";
-        char buff[Socket::SocketException::MAXERRNOMSG];
-        strerror_r(e.errno_number, buff, Socket::SocketException::MAXERRNOMSG);
+        char buff[MAXERRNOMSG];
+        strerror_r(errno_number, buff, MAXERRNOMSG);
         s += buff;
     };
-    s += "]";
+    return (s.c_str());
+}
 
-    return os << s;
+std::ostream& operator<<(std::ostream& os, const Socket::SocketException& e){
+    return os << "[SocketException: " << e.what() << "]";
 }
 
 // Socket::SocketAddress nested class

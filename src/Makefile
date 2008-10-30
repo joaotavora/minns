@@ -6,13 +6,13 @@ LIBDIR  ?= $(CURDIR)
 BINDIR  ?= $(CURDIR)
 
 MAKELIB ?= libtool -o $(LIBDIR)/$@ $^
-MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDOR)/$@
+MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
 
 # Specific to this makefile
 
 all : minns
 
-minns: DnsServer.o UdpSocket.o Socket.o DnsResolver.o
+minns: DnsServer.o DnsMessage.o UdpSocket.o Socket.o DnsResolver.o
 	$(MAKEBIN)
 
 echo: EchoServer.o TcpSocket.o Socket.o Thread.o
@@ -33,7 +33,7 @@ clean: cleanlibs
 	rm -rf *.o minns echo *.dSYM
 
 cleanlibs:
-	rm -rf libthread.a libtcpsocket.a libudpsocket.a
+	rm -rf libthread.a libtcpsocket.a libudpsocket.a libdnsresolver.a
 
 # Dependencies
 

@@ -1,8 +1,13 @@
+// stdl includes
+#include <sstream>
+
 // project includes
 #include "UdpSocket.h"
 
 UdpSocket::UdpSocket() throw ()
-    : Socket(socket (AF_INET, SOCK_DGRAM, 0)){
+    :
+    Socket(socket (AF_INET, SOCK_DGRAM, 0))
+{
     if (sockfd == -1){
         throw SocketException(errno, "Could not create socket");
     }
@@ -12,9 +17,12 @@ std::ostream& operator<<(std::ostream& os, const UdpSocket& sock){
     return os << "[UDP " << (const Socket&) sock << "]";
 }
 
-size_t UdpSocket::sendto(const char* msg, size_t len, const SocketAddress& to) const throw (SocketException){
-    if (len <= 0)
-        throw SocketException("invalid amount of bytes to send: "+len);
+size_t UdpSocket::sendto(const char* msg, const SocketAddress& to, size_t len) const throw (SocketException){
+    if (len <= 0){
+        std::stringstream ss;
+        ss << "invalid amount of bytes to send: " << len;
+        throw SocketException(ss.str().c_str());
+    }
     ssize_t sent = ::sendto(
         sockfd,
         msg,
@@ -27,7 +35,7 @@ size_t UdpSocket::sendto(const char* msg, size_t len, const SocketAddress& to) c
     return sent;
 }
 
-size_t UdpSocket::recvfrom(char* result, size_t size, SocketAddress& from) const throw (SocketException){
+size_t UdpSocket::recvfrom(char* result, SocketAddress& from, size_t size) const throw (SocketException){
     int recvd;
     if ((recvd = ::recvfrom(
                 sockfd,
@@ -41,17 +49,21 @@ size_t UdpSocket::recvfrom(char* result, size_t size, SocketAddress& from) const
         return recvd;
 }
 
-void UdpSocket::sendto(const std::string& msg, const SocketAddress& to) const throw (SocketException){
-    if (sendto(msg.c_str(), msg.size(), to) != msg.size())
-        throw SocketException("sendto(string&,...) error: not enough bytes sent");
-}
+// void UdpSocket::sendto(const std::string& msg, const SocketAddress& to) const throw (SocketException){
+//     if (sendto(msg.c_str(), to, msg.size()) != msg.size())
+//         throw SocketException("sendto(string&,...) error: not enough bytes sent");
+// }
 
-std::string& UdpSocket::recvfrom(SocketAddress &from) const throw (SocketException){
-    static char buff[UdpSocket::MAXLINE];
+// std::string& UdpSocket::recvfrom(SocketAddress &from) const throw (SocketException){
+//     char* buff = new char[maxmessage];
 
-    recvfrom(buff,UdpSocket::MAXLINE,from);
-    return *new std::string(buff);
-}
+//     recvfrom(buff,from, maxmessage);
+
+//     std::string& retval = *new std::string(buff);
+//     delete []buff;
+
+//     return retval;
+// }
 
 
 

@@ -13,14 +13,12 @@ public:
     UdpSocket() throw ();
 
     // raw char data sendto and recvfrom
-    void sendto(const std::string& msg, const SocketAddress& to) const throw (SocketException);
-    std::string& recvfrom(SocketAddress &from) const throw (SocketException);
+    size_t sendto(const char* msg, const SocketAddress& to, size_t len = DEFAULT_MAX_MSG) const throw (SocketException);
+    size_t recvfrom(char* result, SocketAddress& from, size_t size = DEFAULT_MAX_MSG) const throw (SocketException);
 
-    // std::string sendto and recvfrom
-    size_t sendto(const char* msg, size_t len, const SocketAddress& to) const throw (SocketException);
-    size_t recvfrom(char* result, size_t size, SocketAddress& from) const throw (SocketException);
-
-    static const int MAXLINE=200;
+    static const unsigned int DEFAULT_MAX_MSG=512;
+private:
+    UdpSocket(const UdpSocket& src);
 
 };
 
