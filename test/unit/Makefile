@@ -1,21 +1,44 @@
--include $(BASE)/Makefile.inc
+# Try to figure out undefined values
+BASE ?= $(CURDIR)/../..
 
-BASE ?= ../../
+SRCDIR  ?= $(BASE)/src
+
+# keep created bins inside current directory when built "locally"
+BINDIR  ?= $(CURDIR)
+
+LIBDIR  ?= $(BASE)/src
+
+MAKELIB ?= libtool -o $(LIBDIR)/$@ $^
+MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
+
+# Specific to this makefile
+
 CXXFLAGS ?= -g -Wall -ansi -pedantic
 
-INC += -I$(BASE)src
-
+INC += -I$(SRCDIR)
 CXXFLAGS += $(INC)
 
-TESTS = testTcpSocket
+all: tcpSocketUnit udpSocketUnit threadUnit dnsResolverUnit 
 
-all: $(TESTS)
+#cd $(SRCDIR) && $(MAKE) LIBDIR='$(LIBDIR)' -w -W $*.a $*.a
 
-testTcpSocket: $(BASE)/src/TcpSocket.o $(BASE)/src/TcpSocket.h $(BASE)/src/Socket.o $(BASE)/src/Socket.h TcpSocketUnit.o 
-	$(LINK.cpp) $^ $(LDLIBS) -o $@
+$(LIBDIR)/%.a:
+	cd $(SRCDIR) && $(MAKE) LIBDIR='$(LIBDIR)' -w $*.a
 
-testUdpSocket: $(BASE)/src/UdpSocket.o $(BASE)/src/UdpSocket.h $(BASE)/src/Socket.o $(BASE)/src/Socket.h UdpSocketUnit.o 
-	$(LINK.cpp) $^ $(LDLIBS) -o $@
+tcpSocketUnit: $(LIBDIR)/libthread.a ThreadUnit.o
+	$(MAKEBIN)
+
+udpSocketUnit: $(LIBDIR)/libtcpsocket.a TcpSocketUnit.o 
+	$(MAKEBIN)
+
+threadUnit: $(LIBDIR)/libudpsocket.a UdpSocketUnit.o 
+	$(MAKEBIN)
+
+dnsResolverUnit: $(LIBDIR)/libdnsresolver.a DnsResolverUnit.cpp
+	$(MAKEBIN)
+
+clean:
+	rm -rf *.o *.dSYM testThread testTcpSocket testUdpSocket
 
 
 # test%: $(BASE)/src/%.o %Unit.o

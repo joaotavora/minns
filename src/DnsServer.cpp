@@ -1,7 +1,14 @@
+// stdl includes
+#include <iostream>
+#include <fstream>
+
+// Project includes
 #include "DnsServer.h"
 
+//usings
+using namespace std;
 
-int initialize(){
+void initialize(){
     ofstream out("my_err");
     if ( out )
         clog.rdbuf(out.rdbuf());
@@ -10,7 +17,6 @@ int initialize(){
 
     // FIXME: doesn't address the terminate() SIGSEGV problems, this needs flushing
 }
-
 
 int main(){
 

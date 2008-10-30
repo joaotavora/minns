@@ -26,6 +26,8 @@ libtcpsocket.a: TcpSocket.o Socket.o
 	$(MAKELIB)
 libudpsocket.a: UdpSocket.o Socket.o
 	$(MAKELIB)
+libdnsresolver.a: DnsResolver.o
+	$(MAKELIB)
 
 clean: cleanlibs 
 	rm -rf *.o minns echo *.dSYM
