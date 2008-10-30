@@ -1,7 +1,0 @@
-# um comentario
-192.168.1.1 somehost.somedomain somehost bla
-192.168.1.2 anotherhost.anotherdomain anotherhost ble
-# next line has an error
-192.168.1.3
-# next line only has no aliases
-192.168.1.4 yetanotherhost.anotherdomain

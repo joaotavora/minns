@@ -25,11 +25,13 @@ public:
 
     // Cache nested class
     class Cache {
+
+        // map_value_t nested nested class and friends
+
         class map_value_t;
 
-        unsigned int maxsize;
-
         typedef std::map<std::string, map_value_t> map_t;
+        typedef std::list<map_t::iterator> list_t;
 
         class map_value_t {
         public:
@@ -40,17 +42,18 @@ public:
             struct in_addr ip;
             std::list<map_t::iterator>::iterator listiter;
         };
-        typedef std::list<map_t::iterator> list_t;
 
+        unsigned int maxsize;
     public:
         Cache(unsigned int maxsize);
         ~Cache();
 
         struct in_addr* lookup(const std::string& address);
         struct in_addr* insert(std::string& alias, struct in_addr ip);
+        bool full() const;
 
-        std::string local_list_head() const;
-        std::string local_list_tail() const;
+        std::string print_head() const;
+        std::string print_tail() const;
 
         friend std::ostream& operator<<(std::ostream& os, const DnsResolver& dns);
     private:

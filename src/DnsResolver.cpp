@@ -13,7 +13,7 @@
 using namespace std;
 
 DnsResolver::DnsResolver(const std::string& filename, int maxsize = DEFAULT_CACHE_SIZE)
-    : file(*new ifstream(filename.c_str())),
+    : file(*new ifstream(filename.c_str(), ios::in)),
       cache(*new Cache(maxsize))
 {
     if (file.fail())
@@ -49,25 +49,53 @@ struct in_addr* DnsResolver::resolve(const std::string& address) throw (ResolveE
     // lookup `address' in the cache
     struct in_addr* result = cache.lookup(address);
     if (result != NULL) {
-        cerr <<  "        (Cache HIT! for \'" << address << "\')\n";
+        // clog <<  __FILE__ << ":" << (int)__LINE__ << "resolve(): Cache HIT! for \'" << address << "\'\n";
         return result;
     }
-    cerr <<  "        (Cache MISS for \'" << address << "\')\n";
+    // clog <<  "        (Cache MISS for \'" << address << "\')\n";
 
     // lookup `address' in the file, starting from wherever it was
     // FIXME: should go round the file exactly once
     string line;
-    DnsEntry parsed;
-    while (getline(file, line)){
+
+    streampos startpos = file.tellg();
+    // clog << "      (startpos tellg() is " << file.tellg() << ")" << endl;
+    while (1) {
+        if (!getline(file, line)){
+            file.clear();
+            // clog << "      (Turning file around)" << endl;
+            file.seekg(0, ios::beg); // Start of file
+            // clog << "      (tellg() is " << file.tellg() << ")" << endl;
+            if (startpos == file.tellg()){
+                // clog << "        (Giving up after on whole trip)" << endl;
+                return NULL;
+            }
+            if (!getline(file, line)){
+                // clog << "       (getline() false after seeking to beginning)" << endl;
+                return NULL;
+            }
+        }
+        if (startpos == file.tellg()){
+            // clog << "        (Giving up after on whole trip)" << endl;
+            return NULL;
+        }
+        // clog << "    (Got line " << line << ")" << endl;
+
+        DnsEntry parsed;
         if (parse_line(line, parsed) != -1){
             for (vector<string>::iterator iter=parsed.aliases.begin(); iter != parsed.aliases.end(); iter++){
-                struct in_addr* aux = cache.insert(*iter, parsed.ip);
-                if (address.compare(*iter) == 0) result = aux;
+                if (address.compare(*iter) == 0){
+                    // clog << "        (File HIT for \'" << *iter << "\' inserted into cache )" << endl;
+                    result = cache.insert(*iter, parsed.ip);
+                } else if (!cache.full()) {
+                    // clog << "        (Inserting \'" << *iter << "\' into cache anyway )" << endl;
+                    cache.insert(*iter, parsed.ip);
+                } else {
+                    // clog << "        (Cache is full \'" << *iter << "\' not inserted)" << endl;
+                }
+
             }
-            if (result != NULL) {
-                cerr <<  "        (File  HIT! for \'" << address << "\')\n";
-                return result;
-            }
+            if (result != NULL) return result;
         }
     }
     return NULL;
@@ -102,8 +130,8 @@ std::ostream& operator<<(std::ostream& os, const DnsResolver& dns){
         "[DnsResolver: " <<
         "msize=\'" << dns.cache.local_map.size() << "\' " <<
         "lsize=\'" << dns.cache.local_list.size() << "\' " <<
-        "head=\'" << dns.cache.local_list_head()  << "\' " <<
-        "tail=\'" << dns.cache.local_list_tail()  << "\' " <<
+        "head=\'" << dns.cache.print_head()  << "\' " <<
+        "tail=\'" << dns.cache.print_tail()  << "\' " <<
         "]";
 }
 
@@ -139,7 +167,7 @@ struct in_addr* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
         local_map.insert(make_pair(alias, *new map_value_t(ip, local_list.begin())));
 
     if (temppair.second != true){
-        cerr << "DnsResolver::Cache::insert(): Insertion of " << alias << " failed!";
+        // clog << "DnsResolver::Cache::insert(): Insertion of " << alias << " failed!" << endl;
         return NULL;
     }
     // insert into the beginning of the list the recently obtained iterator to
@@ -153,20 +181,25 @@ struct in_addr* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
     // if we exceeded the maximum allowed size, remove from both list and map
     if (local_list.size() > maxsize){
         // remove from map
+        // clog << "        (removing \'" << print_tail() << "\' from cache)" << endl;
         local_map.erase(local_list.back());
         local_list.pop_back();
     }
     return &(temppair.first->second.ip);
 }
 
-string DnsResolver::Cache::local_list_head() const {
+bool DnsResolver::Cache::full() const {
+    return local_list.size() == maxsize;
+}
+
+string DnsResolver::Cache::print_head() const {
     if (local_list.size() > 0)
         return (local_list.front())->first;
     else
         return "<none>";
 }
 
-string DnsResolver::Cache::local_list_tail() const {
+string DnsResolver::Cache::print_tail() const {
     if (local_list.size() > 0)
         return (local_list.back())->first;
     else
@@ -204,21 +237,29 @@ string& tryResolve(DnsResolver& resolver, const string& what) throw (DnsResolver
     static string result;
 
     if (resolver.resolve(what, result) != NULL)
-        cout << "  Success! " << what << " resolved to " << result << "\n";
+        cout << "  Success! " << what << " resolved to " << result << ", " << resolver << "\n";
     else
-        cout << "  Could not resolve " << what << "\n";
+        cout << "  Could not resolve " << what << ", " << resolver << "\n";
     return result;
 }
 
-
 int main(int argc, char* argv[]){
     try {
-        DnsResolver a("testhosts.txt");
+        if (argc < 2){
+            cerr << "Usage: DnsResolver cachesize [names_to_resolve]\n";
+            return -1;
+        }
+        int cachesize = strtol(argv[1], NULL, 0);
+        if (cachesize == 0){
+            cerr << "Invalid cache size\n";
+            return -1;
+        }
+
+        DnsResolver a("testhosts.txt", cachesize);
         string result;
 
-        for (int i=1; i < argc; i++){
+        for (int i=2; i < argc; i++){
             tryResolve(a, argv[i]);
-            cout << "  a = " << a << endl;
         }
     } catch (std::exception& e) {
         cerr << "  Exception: " << e.what() << endl;
