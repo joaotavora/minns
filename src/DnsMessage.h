@@ -19,9 +19,10 @@ public:
     class DnsException : public std::runtime_error {
     public:
         virtual DnsErrorResponse *error_response() const;
-    protected:
-        DnsException(const char* s);
+        DnsException(const uint16_t ID, const char* s);
         friend std::ostream& operator<<(std::ostream& os, const DnsException& e);
+    protected:
+        uint16_t queryID;
     private:
         static const ssize_t MAXERRNOMSG=200;
     };
@@ -29,8 +30,8 @@ public:
     // ParseException - signals a problem while parsing
     class ParseException : public DnsException {
     public:
-        ParseException(const char* s)
-            : DnsException(s) {}
+        ParseException(const uint16_t ID, const char* s)
+            : DnsException(ID, s) {}
         DnsErrorResponse *error_response() const;
     };
 
@@ -38,18 +39,22 @@ public:
     class NotSupportedException : public DnsException {
     public:
         NotSupportedException(uint16_t ID, const char* s)
-            : DnsException(s), messageId(ID) {}
+            : DnsException(ID, s) {}
         DnsErrorResponse *error_response() const;
-    private:
-        uint16_t messageId;
     };
 
     // CouldNotResolveException
     class CouldNotResolveException : public DnsException {
     public:
-        CouldNotResolveException(const char* s)
-            : DnsException(s) {}
+        CouldNotResolveException(uint16_t ID, const char* s)
+            : DnsException(ID, s) {}
         DnsErrorResponse *error_response() const;
+    };
+
+    class SerializeException : public std::runtime_error {
+    public:
+        SerializeException(const char* s)
+            : std::runtime_error(s){}
     };
 
     // Constructors and destructors
@@ -57,8 +62,10 @@ public:
     DnsMessage();
     ~DnsMessage();
 
+    const uint16_t getID() const {return ID;}
+
     // Serialize stuff
-    size_t serialize(char* buff, const size_t len);
+    size_t serialize(char* buff, const size_t len) throw (SerializeException);
 
     // friends - while DnsResponse inherits from DnsMessage, this is still
     // needed to have it modify private fields of another, pure DnsMessage
@@ -66,8 +73,8 @@ public:
     friend class DnsResponse;
 
 protected:
-    static size_t parse_qname(char* buff, size_t buflen, char* resulting_thing);
-    static size_t serialize_qname(const std::string& qname, size_t buflen, char* resulting_thing);
+    size_t parse_qname(char* buff, size_t buflen, char* resulting_thing);
+    static size_t serialize_qname(const std::string& qname, char* resulting_thing, size_t buflen) throw (SerializeException);
 
     // friends
     friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
@@ -79,11 +86,11 @@ protected:
 
     DnsMessage(DnsMessage& src);
 
-    // ID(16): message ID, copied unchanged from query to response
+    // ID(2 bytes): message ID, copied unchanged from query to response
     uint16_t ID;
-    // QR(1): false for queries, true for answers
+    // QR(1 bit): false for queries, true for answers
     bool QR;
-    // OPCODE(4): operation type, only OP_QUERY supported
+    // OPCODE(4 bits): operation type, only OP_QUERY supported
     char OPCODE;
     // AA(1): true if authoritative answer,
     bool AA;
@@ -101,8 +108,6 @@ protected:
     // RCODE_SERVFAIL, etc
     char RCODE;
 
-
-protected:
     class DnsQuestion;
     class ResourceRecord;
     // Variable length question section, with QDCOUNT questions
@@ -126,7 +131,7 @@ protected:
     public:
         DnsQuestion(const char* domainname, uint16_t _qtype, uint16_t _qclass);
         friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
-
+        size_t serialize(char *buff, const size_t buflen) throw (SerializeException);
     };
     class ResourceRecord {
         // NAME(variable, crazy structure): domain name the resource record is bound to. defaults to root
@@ -141,9 +146,11 @@ protected:
         // RDLENGTH(2 bytes): length in bytes of data pointed to by RDATA, only 4 is
         // supported
         uint16_t RDLENGTH;
-        // RDATA: raw binary data for this resource record,
+        // RDATA: raw binary data for this resource record, in network order
+        // already.
         char *RDATA;
     public:
+        size_t serialize(char *buff, const size_t buflen) throw (SerializeException);
         ResourceRecord(const std::string& name, const struct in_addr& resolvedaddress);
         friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
     };
@@ -151,7 +158,7 @@ protected:
     // constants
     const static bool QUERY = 0;
     const static bool QUERY_A = 0;
-    const static bool TYPE_A = 0;
+    const static bool TYPE_A = 1;
     const static bool CLASS_IN = 1;
 };
 
@@ -164,7 +171,7 @@ public:
 
 class DnsErrorResponse : public DnsMessage {
 public:
-    DnsErrorResponse(const char RCODE) throw ();
+    DnsErrorResponse(const uint16_t ID, const char RCODE) throw ();
 
     // constants
     const static char FORMAT_ERROR = 1;

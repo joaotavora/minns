@@ -68,7 +68,7 @@ bool simpleAcceptConnectTest(){
         checkChild(child);
         cout << "Done!\n";
         return true;
-    } catch (std::exception e) {
+    } catch (std::exception& e) {
         cout << "  Server exception: " << e.what() << endl;
         cout << "Failed!\n";
         return false;
@@ -116,10 +116,9 @@ bool readLinesFromClientTest(const int linesize=TcpSocket::DEFAULT_MAX_RECV){
         while (connectedSocket >> clientmessage){
             // cout << "  clientmessage= " << clientmessage << endl;
         }
-        if (clientmessage.empty()){
-            cout << "  \n...failed!\n";
-            return false;
-        }
+        if (clientmessage.empty())
+            throw std::runtime_error("clinet message is empty");
+
         cout << "  Read: \"" << clientmessage << "\"\n";
         if (!(clientmessage.compare(message) == 0))
             throw std::runtime_error("Messages dont match");
@@ -129,7 +128,7 @@ bool readLinesFromClientTest(const int linesize=TcpSocket::DEFAULT_MAX_RECV){
         cout << "Done!\n";
         return true;
     } catch (std::exception& e) {
-        cout << "  " << e.what() << endl;
+        cout << "  Server exception: " << e.what() << endl;
         cout << "Failed!\n";
         return false;
     }
@@ -137,7 +136,6 @@ bool readLinesFromClientTest(const int linesize=TcpSocket::DEFAULT_MAX_RECV){
 
 int main(int argc, char* argv[]){
     cout << "Starting TcpSocket unit tests\n";
-
     simpleAcceptConnectTest();
     readLinesFromClientTest(1);
     readLinesFromClientTest(5);

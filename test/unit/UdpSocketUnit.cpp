@@ -69,7 +69,7 @@ bool sendReceiveObjectTest(){
             cout << "  Forked child creating SocketAddress\n";
             Socket::SocketAddress toServer("127.0.0.1",LOCALPORT);
             cout << "  Forked child sending object" << tosend << endl;
-            int len = clientSocket.sendto(reinterpret_cast<char *>(&tosend),sizeof(Object), toServer);
+            int len = clientSocket.sendto(reinterpret_cast<char *>(&tosend), toServer, sizeof(Object));
             cout << "  Forked child wrote " << len << " bytes to " << toServer << endl;
             cout << "  Forked child closing UdpSocket\n";
             clientSocket.close();
@@ -92,7 +92,7 @@ bool sendReceiveObjectTest(){
         cout << "  Server recvfrom()\n";
 
         Object received;
-        int len = serverSocket.recvfrom(reinterpret_cast<char *>(&received),sizeof(Object), fromClient);
+        int len = serverSocket.recvfrom(reinterpret_cast<char *>(&received), fromClient, sizeof(Object));
         cout << "  Read: " << len << " bytes from " << fromClient << endl;
         if (!(tosend.compare(received) == 0))
             throw std::runtime_error("objects dont match");

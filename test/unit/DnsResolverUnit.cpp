@@ -20,24 +20,22 @@ string& tryResolve(DnsResolver& resolver, const string& what) throw (DnsResolver
 
 int main(int argc, char* argv[]){
     try {
-        if (argc < 2){
-            cerr << "Usage: DnsResolver cachesize [names_to_resolve]\n";
-            return -1;
-        }
-        int cachesize = strtol(argv[1], NULL, 0);
-        if (cachesize == 0){
-            cerr << "Invalid cache size\n";
-            return -1;
-        }
+        if (argc < 3)
+            throw DnsResolver::ResolveException("Usage: DnsResolver file cachesize [names_to_resolve]");
 
-        DnsResolver a("testhosts.txt", cachesize);
+        int cachesize = strtol(argv[2], NULL, 0);
+        if (cachesize == 0)
+            throw DnsResolver::ResolveException("Usage: Invalid cache size");
+
+        DnsResolver a(argv[1], cachesize);
         string result;
 
-        for (int i=2; i < argc; i++){
+        for (int i=3; i < argc; i++){
             tryResolve(a, argv[i]);
         }
     } catch (std::exception& e) {
         cerr << "  Exception: " << e.what() << endl;
+        return -1;
     }
 }
 

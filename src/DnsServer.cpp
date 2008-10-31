@@ -37,6 +37,8 @@ void DnsServer::start(){
     stopFlag = false;
     Socket::SocketAddress client;
     char* temp = new char[maxmessage];
+    DnsResponse* response;
+    DnsErrorResponse *error_response;
 
     cout << "DnsServer starting..." << endl;
     while (!stopFlag){
@@ -47,32 +49,35 @@ void DnsServer::start(){
                 if (read == 0)
                     throw Socket::SocketException("Read 0 bytes");
 
-                cout << "Read " << read << " bytes long message: " << endl;
+                cout << "\nRead " << read << " bytes: " << endl;
                 hexdump(temp, read);
 
                 DnsMessage query(temp, read);
                 cout << "Query is " << query << endl;
-                DnsResponse& response = *handle(query, maxmessage);
-                cout << "Response is " << response << endl;
-
-                size_t towrite = response.serialize(temp, maxmessage);
-                if (towrite == 0)
-                    throw Socket::SocketException("Serialized 0 bytes");
-
-                socket.sendto(temp, client, towrite);
-                delete &response;
+                response = handle(query, maxmessage);
+                cout << "Response is " << *response << endl;
+                try {
+                    size_t towrite = response->serialize(temp, maxmessage);
+                    socket.sendto(temp, client, towrite);
+                    cout << "\nSent " << towrite << " bytes: " << endl;
+                    hexdump(temp, towrite);
+                } catch (DnsMessage::SerializeException& e) {
+                    throw DnsMessage::DnsException(query.getID(),e.what());
+                }
             } catch (DnsMessage::DnsException& e){
-                cerr << "Warning: exception parsing message: " << e.what() << ". Responding..." << endl;
-                DnsErrorResponse& response = *handle(e);
-                size_t towrite = response.serialize(temp, maxmessage);
-                if (towrite == 0)
-                    throw Socket::SocketException("Serialized 0 bytes of error response");
+                cerr << "Warning: message exception: " << e.what() << endl;
+                error_response = handle(e);
+                cerr << "Responding with " << *error_response << endl;
+                size_t towrite = error_response->serialize(temp, maxmessage);
                 socket.sendto(temp, client, towrite);
             }
+        } catch (DnsMessage::SerializeException& e) {
+            cerr << "Warning: could not serialize error respose: " << e.what() << endl;
         } catch (Socket::SocketException& e) {
             cerr << "Warning: socket exception: " << e.what() << ". Continuing..." << endl;
-            continue;
         }
+        delete response;
+        delete error_response;
     }
 }
 

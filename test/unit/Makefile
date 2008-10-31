@@ -25,23 +25,27 @@ all: tcpSocketUnit udpSocketUnit threadUnit dnsResolverUnit
 $(LIBDIR)/%.a:
 	cd $(SRCDIR) && $(MAKE) LIBDIR='$(LIBDIR)' -w $*.a
 
-tcpSocketUnit: $(LIBDIR)/libthread.a ThreadUnit.o
+tcpSocketUnit: $(LIBDIR)/libtcpsocket.a TcpSocketUnit.o
 	$(MAKEBIN)
 
-udpSocketUnit: $(LIBDIR)/libtcpsocket.a TcpSocketUnit.o 
+udpSocketUnit: $(LIBDIR)/libudpsocket.a UdpSocketUnit.o
 	$(MAKEBIN)
 
-threadUnit: $(LIBDIR)/libudpsocket.a UdpSocketUnit.o 
+threadUnit: $(LIBDIR)/libthread.a ThreadUnit.o
 	$(MAKEBIN)
 
-dnsResolverUnit: $(LIBDIR)/libdnsresolver.a DnsResolverUnit.cpp
+dnsResolverUnit: $(LIBDIR)/libdnsresolver.a DnsResolverUnit.o
 	$(MAKEBIN)
 
 clean:
-	rm -rf *.o *.dSYM testThread testTcpSocket testUdpSocket
-
+	rm -rf *.o *.dSYM tcpSocketUnit udpSocketUnit threadUnit dnsResolverUnit
 
 # test%: $(BASE)/src/%.o %Unit.o
 # 	$(LINK.cpp) $^ $(LDLIBS) -o test$@
+
+ThreadUnit.o: ThreadUnit.cpp $(SRCDIR)/Thread.h 
+TcpSocketUnit.o: TcpSocketUnit.cpp $(SRCDIR)/TcpSocket.h $(SRCDIR)/Socket.h
+UdpSocketUnit.o: UdpSocketUnit.cpp $(SRCDIR)/UdpSocket.h $(SRCDIR)/Socket.h
+DnsResolverUnit.o: DnsResolverUnit.cpp $(SRCDIR)/DnsResolver.h
 
 
