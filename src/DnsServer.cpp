@@ -36,45 +36,52 @@ void hexdump(void *pAddressIn, long  lSize);
 void DnsServer::start(){
     stopFlag = false;
     Socket::SocketAddress client;
-    char* buff = new char[maxmessage];
+    char* temp = new char[maxmessage];
 
     cout << "DnsServer starting..." << endl;
     while (!stopFlag){
         size_t read;
         try {
-            read = socket.recvfrom(buff,client,maxmessage);
-            cout << "Read " << read << " bytes long message: " << endl;
-            hexdump(buff, read);
-            // for (size_t i = 0; i < read; i++)
-            //     putchar(buff[i]);
+            try {
+                read = socket.recvfrom(temp,client,maxmessage);
+                if (read == 0)
+                    throw Socket::SocketException("Read 0 bytes");
 
-        } catch (Socket::SocketException& e) {
-            cerr << "Warning: exception reading message: " << e.what() << ". Continuing..." << endl;
-            continue;
-        }
-        if (read == 0){
-            cerr << "Warning: read 0 bytes. Continuing..." << endl;
-            continue;
-        }
-        try {
-            DnsMessage query(buff, read);
-            DnsMessage& response = *handle(query);
+                cout << "Read " << read << " bytes long message: " << endl;
+                hexdump(temp, read);
 
-            size_t towrite = response.serialize(buff, maxmessage);
-            socket.sendto(buff, client, towrite);
-        } catch (DnsMessage::ParseException& e) {
-            cerr << "Warning: exception parsing message: " << e.what() << ". Continuing..." << endl;
-            continue;
+                DnsMessage query(temp, read);
+                cout << "Query is " << query << endl;
+                DnsResponse& response = *handle(query, maxmessage);
+                cout << "Response is " << response << endl;
+
+                size_t towrite = response.serialize(temp, maxmessage);
+                if (towrite == 0)
+                    throw Socket::SocketException("Serialized 0 bytes");
+
+                socket.sendto(temp, client, towrite);
+                delete &response;
+            } catch (DnsMessage::DnsException& e){
+                cerr << "Warning: exception parsing message: " << e.what() << ". Responding..." << endl;
+                DnsErrorResponse& response = *handle(e);
+                size_t towrite = response.serialize(temp, maxmessage);
+                if (towrite == 0)
+                    throw Socket::SocketException("Serialized 0 bytes of error response");
+                socket.sendto(temp, client, towrite);
+            }
         } catch (Socket::SocketException& e) {
-            cerr << "Warning: exception sending reply: " << e.what() << ". Continuing..." << endl;
+            cerr << "Warning: socket exception: " << e.what() << ". Continuing..." << endl;
             continue;
         }
     }
 }
 
-DnsMessage *DnsServer::handle(DnsMessage& query) throw (){
-    cerr << "Warning: returning a empty response" << endl;
-    return new DnsMessage();
+DnsResponse *DnsServer::handle(const DnsMessage& query, const size_t maxmessage) throw (DnsMessage::DnsException){
+    return new DnsResponse(query, resolver, maxmessage);
+}
+
+DnsErrorResponse *DnsServer::handle(const DnsMessage::DnsException& e) throw (){
+    return e.error_response();
 }
 
 // unit tests

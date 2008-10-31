@@ -3,6 +3,7 @@
 
 // stdl includes
 #include <string>
+#include <sstream>
 
 // Project includes
 #include "DnsMessage.h"
@@ -70,7 +71,7 @@ size_t DnsMessage::parse_qname(char* buff, size_t buflen, char* resulting_thing)
 
         resulting_thing[total_len - 1]='.';
 
-        ptr += total_len;
+        ptr += label_len + 1;
     }
 }
 // len is the total size of data to consider
@@ -83,15 +84,15 @@ DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
 
     if (len < 12) throw ParseException("Buffer to small to hold DNS header");
 
-    ID = (uint16_t) htons(*(uint16_t*)&data[0]);
+    ID = htons(*(uint16_t*)&data[0]);
 
     QR = data[2] & 0x80;
 
-    if (QR != 0) throw ParseException("Uhhh. Client talking back to the server");
+    if (QR != QUERY) throw ParseException("Uhhh. Client talking back to the server");
 
     OPCODE = (data[2] & 120) >> 3;
 
-    if (OPCODE != 0) throw NotSupportedException("Only simple QUERY operation supported");
+    if (OPCODE != QUERY_A) throw NotSupportedException(ID, "Only simple QUERY operation supported");
 
     AA = data[2] & 4;
 
@@ -99,23 +100,23 @@ DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
 
     TC = data[2] & 2;
 
-    if (TC != 0) throw ParseException("Client sent a truncated message, why?");
+    if (TC != false) throw ParseException("Client sent a truncated message, why?");
 
     RD = data[2] & 1;
 
     RA = data[3] & 0x80;
 
-    if (RA != 0) throw ParseException("Nice to know the client has recursion");
+    if (RA != false) throw ParseException("Nice to know the client has recursion");
 
     Z = (data[3] & 0x70) >> 3;
 
     // RCODE in queries is ignored
     RCODE = data[3] & 0x0F;
 
-    question_count    = (uint16_t) htons(*(uint16_t*)&data[4]);
-    answer_count      = (uint16_t) htons(*(uint16_t*)&data[6]);
-    authorities_count = (uint16_t) htons(*(uint16_t*)&data[8]);
-    ar_count          = (uint16_t) htons(*(uint16_t*)&data[10]);
+    question_count    = htons(*(uint16_t*)&data[4]);
+    answer_count      = htons(*(uint16_t*)&data[6]);
+    authorities_count = htons(*(uint16_t*)&data[8]);
+    ar_count          = htons(*(uint16_t*)&data[10]);
 
   /* read question section */
 
@@ -132,8 +133,8 @@ DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
         questions.push_back(
             DnsQuestion(
                 domainbuff,
-                (uint16_t) htons(*(uint16_t*)&data[pos]),
-                (uint16_t) htons(*(uint16_t*)&data[pos+2])));
+                htons(*(uint16_t*)&data[pos]),
+                htons(*(uint16_t*)&data[pos+2])));
 
         pos += 4;
 
@@ -143,18 +144,35 @@ DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
   /* all other sections ignored */
 }
 
-
 DnsMessage::DnsMessage(){
+    ID = 0;
+    QR = AA = TC = RD = RA = false;
+    RCODE = OPCODE = 0;
 }
+
 
 DnsMessage::~DnsMessage(){
 }
 
-size_t DnsMessage::serialize(char*, unsigned long){
+size_t DnsMessage::serialize(char* buff, const size_t bufsize){
     return 0;
 }
 
-size_t DnsMessage::serialize(char* buff, const size_t bufsize);
+std::ostream& operator<<(std::ostream& os, const DnsMessage& m){
+    stringstream ss;
+
+    ss << "[DnsMessage:" <<
+        " ID= \'" << hex << m.ID <<
+        " RCODE= \'" << hex << m.RCODE <<
+        "\' questions= \'" << m.questions.size() <<
+        "\' answers= \'" << m.answers.size() << "\' ";
+
+    for (unsigned int i=0; i < m.questions.size(); i++)
+        ss << "(q" << i << "= \'" << m.questions[i].QNAME << "\')";
+    for (unsigned int i=0; i < m.answers.size(); i++)
+        ss << "(r" << i << "= \'" << m.answers[i].NAME << "\' : \'" << m.answers[i].RDATA << "\')";
+    return os << ss.str() << "]";
+}
 
 // DnsQuestion nested class
 
@@ -163,10 +181,67 @@ DnsMessage::DnsQuestion::DnsQuestion(const char* domainname, uint16_t _qtype, ui
       QTYPE(_qtype),
       QCLASS(_qclass) {}
 
-// ParseException exception
 
-DnsMessage::ParseException::ParseException(const char* s) : std::runtime_error(s) {}
+DnsMessage::ResourceRecord::ResourceRecord(const std::string& name, const struct in_addr& resolvedaddress)
+    : NAME(name),
+      TYPE(TYPE_A),
+      CLASS(CLASS_IN),
+      TTL(0),
+      RDLENGTH(4)
+{
+    RDATA = new char[RDLENGTH];
+    memcpy(RDATA, &resolvedaddress, RDLENGTH);
+}
+
+
+// DnsException exception nested class
+
+DnsMessage::DnsException::DnsException(const char* s) : std::runtime_error(s) {}
+
+DnsErrorResponse* DnsMessage::DnsException::error_response() const {
+    return new DnsErrorResponse(DnsErrorResponse::SERVER_FAILURE);
+}
+
+DnsErrorResponse* DnsMessage::ParseException::error_response() const {
+    return new DnsErrorResponse(DnsErrorResponse::FORMAT_ERROR);
+}
+
+DnsErrorResponse* DnsMessage::CouldNotResolveException::error_response() const {
+    return new DnsErrorResponse(DnsErrorResponse::NAME_ERROR);
+}
+
+DnsErrorResponse* DnsMessage::NotSupportedException::error_response() const {
+    return new DnsErrorResponse(DnsErrorResponse::NOT_IMPLEMENTED);
+}
 
 std::ostream& operator<<(std::ostream& os, const DnsMessage::ParseException& e){
     return os << "[ParseException: " << e.what() << "]";
 }
+
+// DnsResponse subclass
+
+DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxmessage) throw (CouldNotResolveException)
+    : DnsMessage(),query(q) {
+    RCODE = DnsResponse::NO_ERROR;
+    for (unsigned int i=0; i < query.questions.size(); i++){
+        // keep the same questions
+        questions.push_back(query.questions[i]);
+        // provide answers using resolver
+        struct in_addr* result = resolver.resolve(query.questions[i].QNAME);
+        if (result != NULL) answers.push_back(*new ResourceRecord(query.questions[i].QNAME,
+                *result));
+    }
+    if (answers.size() == 0){
+        questions.clear();
+        answers.clear(); // for clarity, not necessary
+        throw CouldNotResolveException("Could not resolve any of the questions");
+    }
+}
+
+DnsErrorResponse::DnsErrorResponse(const char _RCODE) throw ()
+    : DnsMessage() {
+    RCODE = _RCODE;
+}
+
+
+

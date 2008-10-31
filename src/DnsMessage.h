@@ -1,40 +1,76 @@
 #ifndef DNS_MESSAGE_H
 #define DNS_MESSAGE_H
 
+// libc includes
+#include <arpa/inet.h>
+
 // stdl includes
 #include <string>
 #include <vector>
 #include <stdexcept>
 
+// project includes
+#include "DnsResolver.h"
+
+class DnsErrorResponse;
 class DnsMessage {
 public:
-    class ParseException : public std::runtime_error {
+    // DnsException - signals a problem
+    class DnsException : public std::runtime_error {
     public:
-        ParseException(const char* s);
-        friend std::ostream& operator<<(std::ostream& os, const ParseException& e);
+        virtual DnsErrorResponse *error_response() const;
+    protected:
+        DnsException(const char* s);
+        friend std::ostream& operator<<(std::ostream& os, const DnsException& e);
     private:
         static const ssize_t MAXERRNOMSG=200;
     };
 
-    class NotSupportedException : ParseException {
+    // ParseException - signals a problem while parsing
+    class ParseException : public DnsException {
     public:
-        NotSupportedException(const char* s)
-            : ParseException(s) {}
+        ParseException(const char* s)
+            : DnsException(s) {}
+        DnsErrorResponse *error_response() const;
     };
 
-    DnsMessage(char *buff, const size_t size) throw (ParseException);
+    // NotSupportedException - non-supported directives
+    class NotSupportedException : public DnsException {
+    public:
+        NotSupportedException(uint16_t ID, const char* s)
+            : DnsException(s), messageId(ID) {}
+        DnsErrorResponse *error_response() const;
+    private:
+        uint16_t messageId;
+    };
+
+    // CouldNotResolveException
+    class CouldNotResolveException : public DnsException {
+    public:
+        CouldNotResolveException(const char* s)
+            : DnsException(s) {}
+        DnsErrorResponse *error_response() const;
+    };
+
+    // Constructors and destructors
+    DnsMessage(char* buff, const size_t size) throw (ParseException);
     DnsMessage();
     ~DnsMessage();
 
-    size_t serialize(char* buff, const size_t bufsize);
+    // Serialize stuff
+    size_t serialize(char* buff, const size_t len);
+
+    // friends - while DnsResponse inherits from DnsMessage, this is still
+    // needed to have it modify private fields of another, pure DnsMessage
+    // instance
+    friend class DnsResponse;
+
+protected:
+    static size_t parse_qname(char* buff, size_t buflen, char* resulting_thing);
+    static size_t serialize_qname(const std::string& qname, size_t buflen, char* resulting_thing);
 
     // friends
     friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
-
-
-private:
-
-    static size_t parse_qname(char* buff, size_t buflen, char* resulting_thing);
 
     typedef uint16_t u_int16;
     typedef uint32_t u_int32;
@@ -65,6 +101,8 @@ private:
     // RCODE_SERVFAIL, etc
     char RCODE;
 
+
+protected:
     class DnsQuestion;
     class ResourceRecord;
     // Variable length question section, with QDCOUNT questions
@@ -75,37 +113,64 @@ private:
     std::vector<ResourceRecord> authorities;
     // Variable length additional section, with ARCOUNT additional resources
     std::vector<ResourceRecord> additional;
-    class DomainName {
 
-    };
     class DnsQuestion {
+        friend class DnsResponse;
         // QNAME(variable, crazy structure): domain name asked for
         std::string QNAME;
-        // QTYPE(32 bits): query type - only DNS_TYPE_A supported
+        // QTYPE(4 bytes): query type - only DNS_TYPE_A supported
         uint16_t QTYPE;
-        // QCLASS(16 bits): query class - only CLASS_IN supported
+        // QCLASS(2 bytes): query class - only CLASS_IN supported
         uint16_t QCLASS;
 
     public:
         DnsQuestion(const char* domainname, uint16_t _qtype, uint16_t _qclass);
+        friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
 
     };
     class ResourceRecord {
         // NAME(variable, crazy structure): domain name the resource record is bound to. defaults to root
         // domain
-        char* NAME;
-        // TYPE(16 bits): type of this resource record, only DNS_TYPE_A(a host address) supported
+        std::string NAME;
+        // TYPE(2 bytes): type of this resource record, only TYPE_A(a host address) supported
         uint16_t TYPE;
-        // CLASS(16 bits): class this resource record is in, only CLASS_IN supported
+        // CLASS(2 bytes): class this resource record is in, only CLASS_IN supported
         uint16_t CLASS;
-        // TTL(32 bits): time in seconds it may be stored in cache. always 0
+        // TTL(4 bytes): time in seconds it may be stored in cache. always 0
         uint32_t TTL;
-        // RDLENGTH: length in bytes of data pointed to by RDATA, only 4 is
+        // RDLENGTH(2 bytes): length in bytes of data pointed to by RDATA, only 4 is
         // supported
         uint16_t RDLENGTH;
         // RDATA: raw binary data for this resource record,
         char *RDATA;
+    public:
+        ResourceRecord(const std::string& name, const struct in_addr& resolvedaddress);
+        friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
     };
+
+    // constants
+    const static bool QUERY = 0;
+    const static bool QUERY_A = 0;
+    const static bool TYPE_A = 0;
+    const static bool CLASS_IN = 1;
+};
+
+class DnsResponse : public DnsMessage {
+    const DnsMessage& query;
+public:
+    DnsResponse(const DnsMessage& q, DnsResolver& resolver, const size_t maxresponse) throw (CouldNotResolveException);
+    const static char NO_ERROR = 0;
+};
+
+class DnsErrorResponse : public DnsMessage {
+public:
+    DnsErrorResponse(const char RCODE) throw ();
+
+    // constants
+    const static char FORMAT_ERROR = 1;
+    const static char SERVER_FAILURE = 3;
+    const static char NAME_ERROR = 3;
+    const static char NOT_IMPLEMENTED = 4;
 };
 
 #endif // DNS_MESSAGE_H

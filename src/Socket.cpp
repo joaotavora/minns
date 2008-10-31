@@ -70,7 +70,8 @@ std::ostream& operator<<(std::ostream& os, const Socket& sock){
 
 // Socket::SocketException nested class
 
-Socket::SocketException::SocketException(const char* s) : std::runtime_error(s){}
+Socket::SocketException::SocketException(const char* s)
+    : std::runtime_error(s), errno_number(0){}
 
 Socket::SocketException::SocketException(int i,const char* s)
     : std::runtime_error(s), errno_number(i) {}

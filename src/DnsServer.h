@@ -26,7 +26,8 @@ public:
 
 private:
 
-    DnsMessage* handle(DnsMessage& query) throw ();
+    DnsResponse* handle(const DnsMessage& query, size_t maxmessage) throw (DnsMessage::DnsException);
+    DnsErrorResponse* handle(const DnsMessage::DnsException& e) throw ();
 
     UdpSocket& socket;
     DnsResolver& resolver;
