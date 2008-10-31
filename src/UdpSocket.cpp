@@ -49,21 +49,20 @@ size_t UdpSocket::recvfrom(char* result, SocketAddress& from, size_t size) const
         return recvd;
 }
 
-// void UdpSocket::sendto(const std::string& msg, const SocketAddress& to) const throw (SocketException){
-//     if (sendto(msg.c_str(), to, msg.size()) != msg.size())
-//         throw SocketException("sendto(string&,...) error: not enough bytes sent");
-// }
+void UdpSocket::sendto(const std::string& msg, const SocketAddress& to) const throw (SocketException){
+    if (sendto(msg.c_str(), to, msg.size()) != msg.size())
+        throw SocketException("sendto(string&,...) error: not enough bytes sent");
+}
 
-// std::string& UdpSocket::recvfrom(SocketAddress &from) const throw (SocketException){
-//     char* buff = new char[maxmessage];
+std::string& UdpSocket::recvfrom(SocketAddress &from) const throw (SocketException){
+    char buff[DEFAULT_MAX_MSG];
 
-//     recvfrom(buff,from, maxmessage);
+    recvfrom(buff,from, DEFAULT_MAX_MSG);
 
-//     std::string& retval = *new std::string(buff);
-//     delete []buff;
+    std::string& retval = *new std::string(buff);
 
-//     return retval;
-// }
+    return retval;
+}
 
 
 
