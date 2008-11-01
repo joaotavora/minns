@@ -14,7 +14,7 @@ using namespace std;
 TcpSocket::TcpSocket() throw (Socket::SocketException)
     :
     Socket(socket (AF_INET, SOCK_STREAM, 0)),
-    max_receive(DEFAULT_MAX_RECV)
+    max_receive(DEFAULT_MAX_MSG)
 {
     // cout << "TcpSocket ctor\n";
 
@@ -82,7 +82,7 @@ TcpSocket* TcpSocket::accept() throw (SocketException){
     return client;
 }
 
-void TcpSocket::write(const string s) const throw (SocketException){
+void TcpSocket::writeline(const string s) const throw (SocketException){
     string::size_type remaining=s.size();
     string::size_type write_cnt;
     const char* buff = s.c_str();

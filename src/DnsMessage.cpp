@@ -1,4 +1,5 @@
 // libc includes
+#include <string.h>
 #include <arpa/inet.h>
 
 // stdl includes
@@ -11,32 +12,6 @@
 // usings
 using namespace std;
 
-// DnsMessage class, full of bits
-//
-// This is my beautiful binary, hex, decimal reference
-//
-// 0000   x0  0
-// 0001   x1  1
-// 0010   x2  2
-// 0011   x3  3
-// 0100   x4  4
-// 0101   x5  5
-// 0110   x6  6
-// 0111   x7  7
-// 1000   x8  8
-// 1001   x9  9
-// 1010   xA 10
-// 1011   xB 11
-// 1100   xC 12
-// 1101   xD 13
-// 1110   xE 14
-// 1111   xF 15
-// 1100 0000 0xC0 192
-
-
-// bufflen is the total length of QNAME of buff to consider,
-// resulting_thing can be at most 1 char smaller.
-//
 //  use this example for reference
 //
 //              8 m y d o m a i n 3 c o m 0
@@ -44,38 +19,38 @@ using namespace std;
 //              m y d o m a i n . c o m 0
 //
 //
-size_t DnsMessage::parse_qname(char* buff, size_t buflen, char* resulting_thing) {
+size_t DnsMessage::parse_qname(const char* buff, size_t buflen, char* resulting_thing) {
     // total_len keeps the number of character processed
     size_t total_len = 0;
     // ptr should always point to beginning of a label. A special label whose first
     // byte is 0 marks the end of this domain name
-    char* ptr = buff;
+    size_t pos = 0;
     while (true) {
         // check if we reached the end label
-        if (*ptr == 0) {
+        if (buff[pos]==0) {
             resulting_thing[total_len - 1] = '\0'; // null terminate the thing!
             return total_len + 1;
         }
         // check if the topmost two bits are 00 as required
-        if ((*ptr & 0xC0) != 0)
-            throw ParseException(getID(), "Unknown domain label type");
-        size_t label_len = (*ptr & 0x3F);
+        if ((buff[pos] & 0xC0) != 0)
+            throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "Unknown domain label type");
+        size_t label_len = (buff[pos] & 0x3F);
         if (label_len > (buflen - total_len - 2))
-            throw ParseException(getID(), "One label mentions more characters than exist");
+            throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "One label mentions more characters than exist");
 
-        memcpy(&resulting_thing[total_len], &ptr[1], label_len);
+        memcpy(&resulting_thing[total_len], &buff[pos + 1], label_len);
 
         total_len += (1 + label_len);
         if (total_len >= 255)
-            throw ParseException(getID(), "Domain name too long");
+            throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "Domain name too long");
 
         resulting_thing[total_len - 1]='.';
 
-        ptr += label_len + 1;
+        pos += label_len + 1;
     }
 }
 // len is the total size of data to consider
-DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
+DnsMessage::DnsMessage(char *data, const size_t len) throw (DnsException){
     uint16_t
         question_count, // question count
         answer_count, // answer count
@@ -84,29 +59,29 @@ DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
 
     ID = ntohs(*(uint16_t*)&data[0]);
 
-    if (len < 12) throw ParseException(getID(), "Buffer to small to hold DNS header");
+    if (len < 12) throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "Buffer to small to hold DNS header");
 
     QR = (data[2] & 0x80) >> 7;
 
-    if (QR != QUERY) throw ParseException(getID(), "Uhhh. Client talking back to the server");
+    if (QR != QUERY) throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "Uhhh. Client talking back to the server");
 
     OPCODE = (data[2] & 120) >> 3;
 
-    if (OPCODE != QUERY_A) throw NotSupportedException(getID(), "Only simple QUERY operation supported");
+    if (OPCODE != QUERY_A) throw DnsException(getID(), DnsErrorResponse::NOT_IMPLEMENTED, "Only simple QUERY operation supported");
 
     AA = (data[2] & 0x04) >> 2;
 
-    if (AA != 0) throw ParseException(getID(), "Client thinks he's some kind of authority");
+    if (AA != 0) throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "Client thinks he's some kind of authority");
 
     TC = (data[2] & 0x02) >> 1;
 
-    if (TC != false) throw ParseException(getID(), "Client sent a truncated message, why?");
+    if (TC != false) throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "Client sent a truncated message, why?");
 
     RD = (data[2] & 0x01);
 
     RA = (data[3] & 0x80) >> 7;
 
-    if (RA != false) throw ParseException(getID(), "Nice to know the client has recursion");
+    if (RA != false) throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "Nice to know the client has recursion");
 
     Z = (data[3] & 0x70) >> 3;
 
@@ -123,18 +98,18 @@ DnsMessage::DnsMessage(char *data, const size_t len) throw (ParseException){
     size_t pos = 12;
     for (int i = 0; i < question_count; i++) {
         if (pos >= len)
-            throw ParseException(getID(), "So many questions, so little buffer space!");
+            throw DnsException(getID(), DnsErrorResponse::FORMAT_ERROR, "So many questions, so little buffer space!");
 
         char *domainbuff = new char[len - pos - 4];
         int qname_len = parse_qname(&data[12], len - pos - 4, domainbuff);
 
         pos += qname_len;
 
-        questions.push_back(
-            DnsQuestion(
-                domainbuff,
-                ntohs(*(uint16_t*)&data[pos]),
-                ntohs(*(uint16_t*)&data[pos+2])));
+        DnsQuestion question(
+            domainbuff,
+            ntohs(*(uint16_t*)&data[pos]),
+            ntohs(*(uint16_t*)&data[pos+2]));
+        questions.push_back(question);
 
         pos += 4;
 
@@ -153,8 +128,7 @@ DnsMessage::DnsMessage(){
 // x x x x x x x x
 // 1 0 0 0 1  1
 
-DnsMessage::~DnsMessage(){
-}
+DnsMessage::~DnsMessage(){}
 
 size_t DnsMessage::serialize(char* buff, const size_t bufsize) throw (SerializeException){
     uint16_t network_short;
@@ -181,16 +155,20 @@ size_t DnsMessage::serialize(char* buff, const size_t bufsize) throw (SerializeE
     memcpy(&buff[10], &network_short, 2);
 
     size_t pos = 12;
-    for (unsigned int i = 0; i< questions.size() ; i++)
+    
+    for (list<DnsQuestion>::iterator i = questions.begin(); i != questions.end() ; i++)
+        pos += i->serialize(&buff[pos], bufsize - pos);
 
-        pos += questions[i].serialize(&buff[pos], bufsize - pos);
+    for (list<ResourceRecord>::iterator i = answers.begin(); i != answers.end() ; i++)
+        pos += i->serialize(&buff[pos], bufsize - pos);
 
-    for (unsigned int i = 0; i< answers.size() ; i++)
-        pos += answers[i].serialize(&buff[pos], bufsize - pos);
-    for (unsigned int i = 0 ; i< authorities.size() ; i++)
-        pos += authorities[i].serialize(&buff[pos], bufsize - pos);
-    for (unsigned int i = 0 ; i< additional.size() ; i++)
-        pos += additional[i].serialize(&buff[pos], bufsize - pos);
+    for (list<ResourceRecord>::iterator i = authorities.begin(); i != authorities.end() ; i++)
+        pos += i->serialize(&buff[pos], bufsize - pos);
+
+    for (list<ResourceRecord>::iterator i = additional.begin(); i != additional.end() ; i++)
+        pos += i->serialize(&buff[pos], bufsize - pos);
+    
+    
 
     return pos;
 }
@@ -226,12 +204,17 @@ size_t DnsMessage::serialize_qname(const std::string& qname, char* buff, size_t 
     while (true){
         if (!ss.getline(temp, buflen, '.')){
             buff[pos] = 0;
+            delete []temp;
             return pos + 1;
         }
         ssize_t label_len = strlen(temp);
 
         if (pos + 1 + label_len > buflen)
+        {
+            delete []temp;
             throw SerializeException("qname label won't fit into buffer");
+        }
+        
 
         buff[pos] = label_len & 0x3F;
         memcpy(&buff[pos+1],&temp[0],label_len);
@@ -283,17 +266,22 @@ std::ostream& operator<<(std::ostream& os, const DnsMessage& m){
         "\' questions= \'" << m.questions.size() <<
         "\' answers= \'" << m.answers.size() << "\' ";
 
-    for (unsigned int i=0; i < m.questions.size(); i++)
-        ss << "(q" << i << "= \'" << m.questions[i].QNAME << "\')";
-    for (unsigned int i=0; i < m.answers.size(); i++)
-        ss << "(r" << i << "= \'" << m.answers[i].NAME << "\' : \'" << inet_ntoa(*((in_addr *)m.answers[i].RDATA)) << "\')";
+    list<DnsMessage::DnsQuestion> tempquestions(m.questions);
+    list<DnsMessage::ResourceRecord> tempanswers(m.answers);
+    
+    for (list<DnsMessage::DnsQuestion>::iterator i = tempquestions.begin(); i != tempquestions.end() ; i++)
+        ss << "(q= \'" << i->QNAME << "\')";
+
+    for (list<DnsMessage::ResourceRecord>::iterator i = tempanswers.begin(); i != tempanswers.end() ; i++)
+        ss << "(r= \'" << i->NAME << "\' : \'" << inet_ntoa(*((in_addr *)i->RDATA)) << "\')";
+    
     return os << ss.str() << "]";
 }
 
 // DnsQuestion nested class
 
 DnsMessage::DnsQuestion::DnsQuestion(const char* domainname, uint16_t _qtype, uint16_t _qclass)
-    : QNAME(string(domainname)),
+    : QNAME(domainname),
       QTYPE(_qtype),
       QCLASS(_qclass) {}
 
@@ -306,36 +294,33 @@ DnsMessage::ResourceRecord::ResourceRecord(const std::string& name, const struct
       RDLENGTH(4)
 {
     RDATA = new char[RDLENGTH];
-    memcpy(RDATA, &resolvedaddress, RDLENGTH);
+    memcpy(RDATA, (void *)&resolvedaddress, RDLENGTH);
 }
+
+DnsMessage::ResourceRecord::ResourceRecord(const ResourceRecord& src)
+    : NAME(src.NAME),
+      TYPE(src.TYPE),
+      CLASS(src.CLASS),
+      TTL(src.TTL),
+      RDLENGTH(src.RDLENGTH)
+{
+    RDATA = new char [RDLENGTH];
+    memcpy(RDATA, src.RDATA, RDLENGTH);
+}
+
+
+DnsMessage::ResourceRecord::~ResourceRecord(){ delete []RDATA; }
+
 
 // DnsException exception nested class
 
-DnsMessage::DnsException::DnsException(const uint16_t ID, const char* s) : std::runtime_error(s), queryID(ID) {}
+DnsMessage::DnsException::DnsException(const uint16_t ID, char RCODE, const char* s) : std::runtime_error(s), queryID(ID),  errorRCODE(RCODE){}
 
-DnsErrorResponse* DnsMessage::DnsException::error_response() const {
-    return new DnsErrorResponse(queryID, DnsErrorResponse::SERVER_FAILURE);
-}
-
-DnsErrorResponse* DnsMessage::ParseException::error_response() const {
-    return new DnsErrorResponse(queryID, DnsErrorResponse::FORMAT_ERROR);
-}
-
-DnsErrorResponse* DnsMessage::CouldNotResolveException::error_response() const {
-    return new DnsErrorResponse(queryID, DnsErrorResponse::NAME_ERROR);
-}
-
-DnsErrorResponse* DnsMessage::NotSupportedException::error_response() const {
-    return new DnsErrorResponse(queryID, DnsErrorResponse::NOT_IMPLEMENTED);
-}
-
-std::ostream& operator<<(std::ostream& os, const DnsMessage::ParseException& e){
-    return os << "[ParseException: " << e.what() << "]";
-}
+DnsMessage::SerializeException::SerializeException(const char* s) : std::runtime_error(s){}
 
 // DnsResponse subclass
 
-DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxmessage) throw (CouldNotResolveException)
+DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxmessage) throw (DnsException)
     : DnsMessage(),query(q) {
     ID = q.ID;
     QR = true;
@@ -346,23 +331,27 @@ DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxm
     RD = q.RD;
     RA = false;
     Z = q.Z;
-    for (unsigned int i=0; i < query.questions.size(); i++){
-        // keep the same questions
-        questions.push_back(query.questions[i]);
+
+    // keep the same questions
+    questions.assign(query.questions.begin(), query.questions.end());
+
+    for (list<DnsQuestion>::iterator i =  questions.begin(); i != questions.end(); i++){
         // provide answers using resolver
-        struct in_addr* result = resolver.resolve(query.questions[i].QNAME);
-        if (result != NULL) answers.push_back(*new ResourceRecord(query.questions[i].QNAME,
-                *result));
+        struct in_addr* result = resolver.resolve(i->QNAME);
+        if (result != NULL) {
+            ResourceRecord record(i->QNAME,*result);
+            answers.push_back(record);
+        }
     }
     if (answers.size() == 0){
-        questions.clear();
-        answers.clear(); // for clarity, not necessary
-        throw CouldNotResolveException(ID, "Could not resolve any of the questions");
+        throw DnsException(ID, DnsErrorResponse::NAME_ERROR, "Could not resolve any of the questions");
     }
-
-
     TC = false;
 }
+
+DnsResponse::~DnsResponse(){}
+
+// DnsErrprResponse subclass
 
 DnsErrorResponse::DnsErrorResponse(uint16_t _ID, const char _RCODE) throw ()
     : DnsMessage() {
@@ -370,6 +359,13 @@ DnsErrorResponse::DnsErrorResponse(uint16_t _ID, const char _RCODE) throw ()
     ID = _ID;
     QR = true;
     RCODE = _RCODE;
+}
+
+DnsErrorResponse::DnsErrorResponse(const DnsException& e) throw ()
+    : DnsMessage(){
+    ID = e.queryID;
+    QR = true;
+    RCODE = e.errorRCODE;
 }
 
 

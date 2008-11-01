@@ -11,7 +11,7 @@ class TcpSocket : public Socket {
 public:
     // Constants
     static const int MAXHOSTNAME = 200;
-    static const int DEFAULT_MAX_RECV = 512;
+    static const int DEFAULT_MAX_MSG = 512;
     static const int DEFAULT_MAX_CONNECTIONS = 5;
 
     // Client initialization

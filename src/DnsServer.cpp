@@ -1,7 +1,11 @@
+// libc includes
+#include <string.h>
+
 // stdl includes
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
+#include <vector>
 
 // project includes
 #include "DnsServer.h"
@@ -12,137 +16,27 @@ using namespace std;
 // class members definition
 
 DnsServer::DnsServer (
-    const string& filename = "/etc/hosts",
-    const unsigned int cachesize = DnsResolver::DEFAULT_CACHE_SIZE,
-    const unsigned int port = DEFAULT_DNS_PORT,
-    const unsigned int maxaliases = DnsResolver::DEFAULT_MAX_ALIASES,
-    const unsigned int the_maxmessage = UdpSocket::DEFAULT_MAX_MSG)  throw(std::exception)
-    :
-    socket(*new UdpSocket()),
-    resolver(*new DnsResolver(filename, cachesize, maxaliases)),
-    maxmessage(the_maxmessage)
+    DnsResolver& resolver,
+    const unsigned int udpport = DEFAULT_UDP_PORT,
+    const unsigned int tcpport = DEFAULT_TCP_PORT,
+    const unsigned int udpworkers = DEFAULT_UDP_WORKERS,
+    const unsigned int tcpworkers = DEFAULT_TCP_WORKERS )  throw(std::exception)
     {
-        socket.bind_any(port);
+        for (unsigned int i=0; i < udpworkers; i++)
+            workers.push_back(new UdpWorker(udpport, resolver));
+
+        for (unsigned int i=0; i < tcpworkers; i++)
+            workers.push_back(new TcpWorker(tcpport, resolver));
     }
 
 DnsServer::~DnsServer(){
-    delete &socket;
-    delete &resolver;
 }
-
-// FIXME: remove this forward declaration of pasted code
-void hexdump(void *pAddressIn, long  lSize);
 
 void DnsServer::start(){
-    stopFlag = false;
-    Socket::SocketAddress client;
-    char* temp = new char[maxmessage];
-    DnsResponse* response;
-    DnsErrorResponse *error_response;
-
-    cout << "DnsServer starting..." << endl;
-    while (!stopFlag){
-        size_t read;
-        try {
-            try {
-                read = socket.recvfrom(temp,client,maxmessage);
-                if (read == 0)
-                    throw Socket::SocketException("Read 0 bytes");
-
-                cout << "\nRead " << read << " bytes: " << endl;
-                hexdump(temp, read);
-
-                DnsMessage query(temp, read);
-                cout << "Query is " << query << endl;
-                response = handle(query, maxmessage);
-                cout << "Response is " << *response << endl;
-                try {
-                    size_t towrite = response->serialize(temp, maxmessage);
-                    socket.sendto(temp, client, towrite);
-                    cout << "\nSent " << towrite << " bytes: " << endl;
-                    hexdump(temp, towrite);
-                } catch (DnsMessage::SerializeException& e) {
-                    throw DnsMessage::DnsException(query.getID(),e.what());
-                }
-            } catch (DnsMessage::DnsException& e){
-                cerr << "Warning: message exception: " << e.what() << endl;
-                error_response = handle(e);
-                cerr << "Responding with " << *error_response << endl;
-                size_t towrite = error_response->serialize(temp, maxmessage);
-                socket.sendto(temp, client, towrite);
-            }
-        } catch (DnsMessage::SerializeException& e) {
-            cerr << "Warning: could not serialize error respose: " << e.what() << endl;
-        } catch (Socket::SocketException& e) {
-            cerr << "Warning: socket exception: " << e.what() << ". Continuing..." << endl;
-        }
-        delete response;
-        delete error_response;
-    }
-}
-
-DnsResponse *DnsServer::handle(const DnsMessage& query, const size_t maxmessage) throw (DnsMessage::DnsException){
-    return new DnsResponse(query, resolver, maxmessage);
-}
-
-DnsErrorResponse *DnsServer::handle(const DnsMessage::DnsException& e) throw (){
-    return e.error_response();
+    
 }
 
 // unit tests
-
-void hexdump(void *pAddressIn, long  lSize)
-{
- char szBuf[100];
- long lIndent = 1;
- long lOutLen, lIndex, lIndex2, lOutLen2;
- long lRelPos;
- struct { char *pData; unsigned long lSize; } buf;
- unsigned char *pTmp,ucTmp;
- unsigned char *pAddress = (unsigned char *)pAddressIn;
-
-   buf.pData   = (char *)pAddress;
-   buf.lSize   = lSize;
-
-   while (buf.lSize > 0)
-   {
-      pTmp     = (unsigned char *)buf.pData;
-      lOutLen  = (int)buf.lSize;
-      if (lOutLen > 16)
-          lOutLen = 16;
-
-      // create a 64-character formatted output line:
-      sprintf(szBuf, " >                            "
-                     "                      "
-                     "    %08X", pTmp-pAddress);
-      lOutLen2 = lOutLen;
-
-      for(lIndex = 1+lIndent, lIndex2 = 53-15+lIndent, lRelPos = 0;
-          lOutLen2;
-          lOutLen2--, lIndex += 2, lIndex2++
-         )
-      {
-         ucTmp = *pTmp++;
-
-         sprintf(szBuf + lIndex, "%02X ", (unsigned short)ucTmp);
-         if(!isprint(ucTmp))  ucTmp = '.'; // nonprintable char
-         szBuf[lIndex2] = ucTmp;
-
-         if (!(++lRelPos & 3))     // extra blank after 4 bytes
-         {  lIndex++; szBuf[lIndex+2] = ' '; }
-      }
-
-      if (!(lRelPos & 3)) lIndex--;
-
-      szBuf[lIndex  ]   = '<';
-      szBuf[lIndex+1]   = ' ';
-
-      printf("%s\n", szBuf);
-
-      buf.pData   += lOutLen;
-      buf.lSize   -= lOutLen;
-   }
-}
 
 void initialize(){
     // primitive log
@@ -158,12 +52,8 @@ void initialize(){
 
 int main(){
     try {
-        DnsServer a(
-            "/etc/hosts",
-            DnsResolver::DEFAULT_CACHE_SIZE,
-            43434,
-            DnsResolver::DEFAULT_MAX_ALIASES,
-            UdpSocket::DEFAULT_MAX_MSG);
+        DnsResolver r("simplehosts.txt", DnsResolver::DEFAULT_CACHE_SIZE, DnsResolver::DEFAULT_MAX_ALIASES);
+        DnsServer a(r, 43434, 53535, 1, 0);
         a.start();
         return 0;
     } catch (std::exception& e) {

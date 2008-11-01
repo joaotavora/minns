@@ -18,49 +18,23 @@ public:
     // DnsException - signals a problem
     class DnsException : public std::runtime_error {
     public:
-        virtual DnsErrorResponse *error_response() const;
-        DnsException(const uint16_t ID, const char* s);
-        friend std::ostream& operator<<(std::ostream& os, const DnsException& e);
-    protected:
-        uint16_t queryID;
+        DnsException(const uint16_t ID, const char errorRCODE, const char* s);
     private:
-        static const ssize_t MAXERRNOMSG=200;
-    };
-
-    // ParseException - signals a problem while parsing
-    class ParseException : public DnsException {
-    public:
-        ParseException(const uint16_t ID, const char* s)
-            : DnsException(ID, s) {}
-        DnsErrorResponse *error_response() const;
-    };
-
-    // NotSupportedException - non-supported directives
-    class NotSupportedException : public DnsException {
-    public:
-        NotSupportedException(uint16_t ID, const char* s)
-            : DnsException(ID, s) {}
-        DnsErrorResponse *error_response() const;
-    };
-
-    // CouldNotResolveException
-    class CouldNotResolveException : public DnsException {
-    public:
-        CouldNotResolveException(uint16_t ID, const char* s)
-            : DnsException(ID, s) {}
-        DnsErrorResponse *error_response() const;
+        friend class DnsErrorResponse;
+        uint16_t queryID;
+        char errorRCODE;
     };
 
     class SerializeException : public std::runtime_error {
     public:
-        SerializeException(const char* s)
-            : std::runtime_error(s){}
+        SerializeException(const char* s);
     };
-
+    
     // Constructors and destructors
-    DnsMessage(char* buff, const size_t size) throw (ParseException);
+    DnsMessage(char* buff, const size_t size) throw (DnsException);
     DnsMessage();
     virtual ~DnsMessage();
+    void deleteRecords();
 
     const uint16_t getID() const {return ID;}
 
@@ -72,8 +46,11 @@ public:
     // instance
     friend class DnsResponse;
 
+private:
+    DnsMessage(DnsMessage& src);
+
 protected:
-    size_t parse_qname(char* buff, size_t buflen, char* resulting_thing);
+    size_t parse_qname(const char* buff, size_t buflen, char* resulting_thing);
     static size_t serialize_qname(const std::string& qname, char* resulting_thing, size_t buflen) throw (SerializeException);
 
     // friends
@@ -83,8 +60,6 @@ protected:
     typedef uint32_t u_int32;
     typedef char u_int4;
     typedef char u_int3;
-
-    DnsMessage(DnsMessage& src);
 
     // ID(2 bytes): message ID, copied unchanged from query to response
     uint16_t ID;
@@ -130,10 +105,10 @@ protected:
 
     public:
         DnsQuestion(const char* domainname, uint16_t _qtype, uint16_t _qclass);
+        ~DnsQuestion(){};
         friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
         size_t serialize(char *buff, const size_t buflen) throw (SerializeException);
 
-    private:
         DnsQuestion(const ResourceRecord& src){}
     };
     class ResourceRecord {
@@ -157,9 +132,8 @@ protected:
         ResourceRecord(const std::string& name, const struct in_addr& resolvedaddress);
         ~ResourceRecord();
         friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
-
-    private:
-        ResourceRecord(const ResourceRecord& src){}
+        ResourceRecord(const ResourceRecord& src);
+        
     };
 
     // constants
@@ -172,13 +146,15 @@ protected:
 class DnsResponse : public DnsMessage {
     const DnsMessage& query;
 public:
-    DnsResponse(const DnsMessage& q, DnsResolver& resolver, const size_t maxresponse) throw (CouldNotResolveException);
+    DnsResponse(const DnsMessage& q, DnsResolver& resolver, const size_t maxresponse) throw (DnsException);
+    ~DnsResponse();
     const static char NO_ERROR = 0;
 };
 
 class DnsErrorResponse : public DnsMessage {
 public:
     DnsErrorResponse(const uint16_t ID, const char RCODE) throw ();
+    DnsErrorResponse(const DnsException& e) throw ();
 
     // constants
     const static char FORMAT_ERROR = 1;

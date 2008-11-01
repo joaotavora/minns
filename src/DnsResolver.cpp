@@ -1,6 +1,7 @@
 // libc includes
 
 #include <errno.h>
+#include <string.h>
 
 // stdl includes
 
@@ -167,8 +168,9 @@ struct in_addr* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
 
     // add element to map and keep an iterator to it. point the newly
     // map_value_t to local_list.begin(), but that will be made invalid soon.
+    map_value_t value(ip, local_list.begin());
     pair<map_t::iterator,bool> temppair =
-        local_map.insert(make_pair(alias, *new map_value_t(ip, local_list.begin())));
+        local_map.insert(make_pair(alias, value));
 
     if (temppair.second != true){
         // clog << "DnsResolver::Cache::insert(): Insertion of " << alias << " failed!" << endl;

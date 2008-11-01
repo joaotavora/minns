@@ -4,13 +4,8 @@
 //  * check why address on listening socket is always '0.2.134.39'
 //  * check why address on either socket is always displayed as '0.0.0.0'
 
-//  * verify automatic deletion and destructor call of temporary *new Object expressions. DONE THEY DONT GET DELETED!
-//  * inline some functions, in the cpp file DONE
-//  * add exception specifications !!!! DONE
-//  * consider embedded member objects rather than reference member objects DONE
-//  * don't throw exceptions in the constructor, or make sure all member objects are cleaned up DONE
-//  * don't throw exceptions in the destructor, or make sure to catch them DONE
-//  * find out about the standard c++ exception hiearachy. make SocketException nested in TcpSocket DONE
+// libc includes
+#include <string.h>
 
 // stdl includes
 
@@ -27,10 +22,11 @@ using namespace std;
 // Socket
 
 Socket::Socket(int fd, SocketAddress& addr) throw ()
-    : sockfd(fd), address(addr) {}
+    : sockfd(fd), address(addr), closed(false) {
+}
 
 Socket::Socket(int fd) throw ()
-    : sockfd(fd), address(*new SocketAddress()) {}
+    : sockfd(fd), address(*new SocketAddress()), closed(false) {}
 
 void Socket::bind_any(const int port) throw (SocketException){
     address.sockaddr.sin_family         = AF_INET;
