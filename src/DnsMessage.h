@@ -6,7 +6,7 @@
 
 // stdl includes
 #include <string>
-#include <vector>
+#include <list>
 #include <stdexcept>
 
 // project includes
@@ -60,7 +60,7 @@ public:
     // Constructors and destructors
     DnsMessage(char* buff, const size_t size) throw (ParseException);
     DnsMessage();
-    ~DnsMessage();
+    virtual ~DnsMessage();
 
     const uint16_t getID() const {return ID;}
 
@@ -111,13 +111,13 @@ protected:
     class DnsQuestion;
     class ResourceRecord;
     // Variable length question section, with QDCOUNT questions
-    std::vector<DnsQuestion> questions;
+    std::list<DnsQuestion> questions;
     // Variable length answers section, with ANCOUNT answers
-    std::vector<ResourceRecord> answers;
+    std::list<ResourceRecord> answers;
     // Variable length authorities section, with NSCOUNT authorities
-    std::vector<ResourceRecord> authorities;
+    std::list<ResourceRecord> authorities;
     // Variable length additional section, with ARCOUNT additional resources
-    std::vector<ResourceRecord> additional;
+    std::list<ResourceRecord> additional;
 
     class DnsQuestion {
         friend class DnsResponse;
@@ -132,6 +132,9 @@ protected:
         DnsQuestion(const char* domainname, uint16_t _qtype, uint16_t _qclass);
         friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
         size_t serialize(char *buff, const size_t buflen) throw (SerializeException);
+
+    private:
+        DnsQuestion(const ResourceRecord& src){}
     };
     class ResourceRecord {
         // NAME(variable, crazy structure): domain name the resource record is bound to. defaults to root
@@ -152,7 +155,11 @@ protected:
     public:
         size_t serialize(char *buff, const size_t buflen) throw (SerializeException);
         ResourceRecord(const std::string& name, const struct in_addr& resolvedaddress);
+        ~ResourceRecord();
         friend std::ostream& operator<<(std::ostream& os, const DnsMessage& msg);
+
+    private:
+        ResourceRecord(const ResourceRecord& src){}
     };
 
     // constants
