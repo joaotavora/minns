@@ -18,16 +18,18 @@ public:
     virtual ~DnsWorker() = 0;
     void rest();
 
-    friend std::ostream& operator<<(std::ostream& os, const DnsWorker& worker);
+    virtual std::string what() const = 0;
+    // time_t getPunch();
+
 
 private:
     void work();
+    // punch();
 
 protected:
     virtual void   setup() = 0;
     virtual size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
     virtual size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
-    virtual std::string what() const = 0;
     void*   main ();
 
 protected:
@@ -36,6 +38,7 @@ protected:
 
 private:
     bool stop_flag;
+    // time_t last_punch;
     DnsResolver& resolver;
     const size_t maxmessage;
     int retval;
@@ -67,7 +70,7 @@ public:
 
     void setup() throw (Socket::SocketException);
     size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException);
-    size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException);
+    size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException); /*  */
     std::string what() const;
 
 private:

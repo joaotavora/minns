@@ -27,7 +27,8 @@ void DnsWorker::work(){
     char* const temp = new char[maxmessage];
 
     cout << "DnsWorker " << this->what() << " starting..." << endl;
-    while (!stop_flag){
+    // while (!stop_flag){
+    for (int i=0; i<2 ; i++){
         try {
             try {
                 size_t read = readQuery(temp, maxmessage);
