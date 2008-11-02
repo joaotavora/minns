@@ -61,7 +61,7 @@ void DnsServer::start(){
     cerr << "DnsServer waiting for worker threads to finish..." << endl;
     for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++)
     {
-        int retval;
+        int retval = 0;
         iter->join(&retval);
         cerr << "   DnsServer: Worker thread tid = " << iter->getTid() << " finished with retval " << retval << endl;
     }

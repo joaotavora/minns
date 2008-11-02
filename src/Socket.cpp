@@ -21,12 +21,8 @@ using namespace std;
 
 // Socket
 
-Socket::Socket(int fd, SocketAddress& addr) throw ()
-    : sockfd(fd), address(addr), closed(false) {
-}
-
 Socket::Socket(int fd) throw ()
-    : sockfd(fd), address(*new SocketAddress()), closed(false) {}
+    : sockfd(fd), closed(false) {}
 
 void Socket::bind_any(const int port) throw (SocketException){
     address.sockaddr.sin_family         = AF_INET;
@@ -57,7 +53,6 @@ Socket::~Socket(){
             cerr << "Socket: warning: dtor caught exception" << e;
         }
     }
-    delete &address;
 }
 
 std::ostream& operator<<(std::ostream& os, const Socket& sock){
@@ -73,13 +68,14 @@ Socket::SocketException::SocketException(int i,const char* s)
     : std::runtime_error(s), errno_number(i) {}
 
 const char * Socket::SocketException::what() const throw(){
-    string s = std::runtime_error::what();
+    static string s;
+
+    s.assign(std::runtime_error::what());
 
     if (errno_number != 0){
+        char buff[MAXERRNOMSG] = {0};
         s += ": ";
-        char buff[MAXERRNOMSG];
-        strerror_r(errno_number, buff, MAXERRNOMSG);
-        s += buff;
+        s.append(strerror_r(errno_number, buff, MAXERRNOMSG));
     };
     return (s.c_str());
 }
@@ -91,17 +87,17 @@ std::ostream& operator<<(std::ostream& os, const Socket::SocketException& e){
 // Socket::SocketAddress nested class
 
 Socket::SocketAddress::SocketAddress() throw () :
-    sockaddr(*new sockaddr_in), socklen(sizeof(sockaddr_in)) {
-    bzero(&sockaddr,sizeof(sockaddr_in));
+    socklen(sizeof(sockaddr_in)) {
+    memset(&sockaddr, 0, sizeof(sockaddr_in));
 }
 
 Socket::SocketAddress::SocketAddress(sockaddr_in& addr, socklen_t len) throw ()
     : sockaddr(addr), socklen(len) {
-    bzero(&sockaddr,len);
+    memset(&sockaddr, 0, sizeof(sockaddr_in));
 }
 
 Socket::SocketAddress::SocketAddress(const char* hostname, const int port) throw (Socket::SocketException) :
-    sockaddr(*new sockaddr_in), socklen(sizeof(sockaddr_in)) {
+    socklen(sizeof(sockaddr_in)) {
 
     sockaddr.sin_family         = AF_INET;
     sockaddr.sin_port           = htons(port);
@@ -119,7 +115,6 @@ Socket::SocketAddress::SocketAddress(const char* hostname, const int port) throw
 
 Socket::SocketAddress::~SocketAddress(){
     //cout << "SocketAddress dtor\n";
-    delete &sockaddr;
 }
 
 std::ostream& operator<<(std::ostream& os, const Socket::SocketAddress& sock){

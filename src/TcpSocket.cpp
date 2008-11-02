@@ -22,7 +22,7 @@ TcpSocket::TcpSocket() throw (Socket::SocketException)
         throw SocketException(errno, "Could not create socket");
     }
 
-    int on;
+    int on = 0;
     if (setsockopt (sockfd,
             SOL_SOCKET,
             SO_REUSEADDR,
@@ -35,9 +35,9 @@ TcpSocket::TcpSocket() throw (Socket::SocketException)
 
 TcpSocket::TcpSocket(int fd, SocketAddress& addr)
     :
-    Socket(fd,addr),
+    Socket(fd),
     max_receive(DEFAULT_MAX_MSG) {
-    // cerr << "  TcpSocket ctor\n";
+    address = addr;
     }
 
 TcpSocket::~TcpSocket(){
@@ -52,9 +52,6 @@ void TcpSocket::connect(const string& host, const int port) throw (SocketExcepti
 
     inet_pton (AF_INET, host.c_str(), &clientaddress.sin_addr);
 
-    // if (::connect(sockfd, reinterpret_cast<struct sockaddr *>(&clientaddress), sizeof(sockaddr_in)) != 0)
-    //     throw SocketException(errno, "Could not connect()");
-
     if (::connect(sockfd, reinterpret_cast<struct sockaddr *>(&toClient.sockaddr), sizeof(sockaddr_in)) != 0)
         throw SocketException(errno, "Could not connect()");
 }
@@ -67,7 +64,7 @@ void TcpSocket::listen(const int max_connections) throw (SocketException){
 TcpSocket* TcpSocket::accept() const throw (SocketException){
     int clifd;
 
-    SocketAddress& fromClient = *new SocketAddress();
+    SocketAddress fromClient;
     if ((clifd = ::accept (sockfd,
                 reinterpret_cast<struct sockaddr *>(&fromClient.sockaddr),
                 &fromClient.socklen)) == -1)
@@ -86,13 +83,14 @@ again:
     read_cnt = ::read(sockfd,buff,remaining);
     remaining -= read_cnt;
 
-    if (read_cnt < 0)
+    if (read_cnt < 0){
         // No data read, interruption or maybe more serious error
         if (errno == EINTR)
             goto again;
         else {
             throw new SocketException(errno, "read() error");
         }
+    }
     return howmany - remaining;
 }
 
@@ -100,11 +98,12 @@ size_t TcpSocket::write(const char* buff, const size_t howmany) throw (SocketExc
     size_t write_cnt;
     size_t remaining=howmany;
 again:
-    if ((write_cnt = ::write(sockfd, buff, remaining)) != remaining)
+    if ((write_cnt = ::write(sockfd, buff, remaining)) != remaining){
         if (errno == EINTR){
             remaining -= write_cnt;
             goto again;
         } else throw SocketException(errno, "write() error");
+    }
     return howmany - remaining;
 }
 
@@ -114,11 +113,12 @@ void TcpSocket::writeline(const string s) const throw (SocketException){
     const char* buff = s.c_str();
 
 again:
-    if ((write_cnt = ::write(sockfd, buff, remaining)) != remaining)
+    if ((write_cnt = ::write(sockfd, buff, remaining)) != remaining){
         if (errno == EINTR){
             remaining -= write_cnt;
             goto again;
         } else throw SocketException(errno, "write() error");
+    }
 }
 
 

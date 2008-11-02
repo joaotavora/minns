@@ -1,6 +1,10 @@
+// libc includes
+#include <stdlib.h>
+
 // stdl includes
 #include <iostream>
 #include <fstream>
+#include <sstream>
 
 // project includes
 #include "DnsResolver.h"
@@ -8,34 +12,39 @@
 // usings
 using namespace std;
 
-string& tryResolve(DnsResolver& resolver, const string& what) throw (DnsResolver::ResolveException){
-    static string result;
 
-    if (resolver.resolve(what, result) != NULL)
-        cout << "  Success! " << what << " resolved to " << result << ", " << resolver << "\n";
-    else
-        cout << "  Could not resolve " << what << ", " << resolver << "\n";
-    return result;
+bool tryToResolveTest(int cachesize, int maxaliases, int maxinverseliases, const char* what){
+    try {
+        cout << "Starting tryToResolveTest() for " << what << " and (" <<
+        cachesize << ", " << maxaliases << ", " << maxinverseliases << ")" << endl;
+        DnsResolver resolver("../module/simplehosts.txt", cachesize, maxaliases, maxinverseliases);
+        stringstream ss(what);
+        string tosearch;
+        while (ss >> tosearch){
+            try {
+                string& result = resolver.resolve_to_string(tosearch);
+                cout << "  Resolved " << tosearch << " to " << result << endl;
+            } catch (DnsResolver::ResolveException& e) {
+                cout << "  Failed to resolve :" << e.what() << endl;
+            }
+            cout << "  " << resolver << endl;
+        }
+        return true;
+    } catch (std::exception& e) {
+        cout << "  Exception: " << e.what() << endl;
+        cout << "Failed: " << e.what() << endl;
+        return false;
+    }
 }
 
 int main(int argc, char* argv[]){
-    try {
-        if (argc < 3)
-            throw DnsResolver::ResolveException("Usage: DnsResolver file cachesize [names_to_resolve]");
-
-        int cachesize = strtol(argv[2], NULL, 0);
-        if (cachesize == 0)
-            throw DnsResolver::ResolveException("Usage: Invalid cache size");
-
-        DnsResolver a(argv[1], cachesize);
-        string result;
-
-        for (int i=3; i < argc; i++){
-            tryResolve(a, argv[i]);
-        }
-    } catch (std::exception& e) {
-        cerr << "  Exception: " << e.what() << endl;
-        return -1;
-    }
+    cout << "Starting TcpSocket unit tests\n";
+    tryToResolveTest(10,10,2, "bla ble");
+    tryToResolveTest(2,10,2, "bla ble");
+    tryToResolveTest(2,10,2, "bla ble");
+    cout << "Done with TcpSocket unit tests\n";
 }
+
+
+
 

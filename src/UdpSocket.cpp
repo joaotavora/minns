@@ -28,7 +28,7 @@ size_t UdpSocket::sendto(const char* msg, const SocketAddress& to, size_t len) c
         msg,
         len,
         0,
-        reinterpret_cast<struct sockaddr*>(&to.sockaddr),
+        (struct sockaddr*)(&to.sockaddr),
         to.socklen);
     if (sent == -1)
         throw SocketException(errno, "send() error");

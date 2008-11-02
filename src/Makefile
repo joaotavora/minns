@@ -1,11 +1,10 @@
 # Try to figure out undefined values
 BASE ?= ../
 CXXFLAGS ?= -g -Wall -pedantic
+LDLIBS ?= -pthread
 
-LIBDIR  ?= $(CURDIR)
 BINDIR  ?= $(CURDIR)
 
-MAKELIB ?= libtool -o $(LIBDIR)/$@ $^
 MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
 
 # Specific to this makefile
@@ -18,30 +17,15 @@ minns: DnsServer.o DnsWorker.o DnsMessage.o UdpSocket.o TcpSocket.o Socket.o Dns
 echo: EchoServer.o TcpSocket.o Socket.o Thread.o
 	$(MAKEBIN)
 
-libs: libthread.a libtcpsocket.a libudpsocket.a
-
-libthread.a: Thread.o
-	$(MAKELIB)
-libtcpsocket.a: TcpSocket.o Socket.o
-	$(MAKELIB)
-libudpsocket.a: UdpSocket.o Socket.o
-	$(MAKELIB)
-libdnsresolver.a: DnsResolver.o
-	$(MAKELIB)
-
-clean: cleanlibs 
+clean: 
 	rm -rf *.o minns echo *.dSYM
 
-cleanlibs:
-	rm -rf libthread.a libtcpsocket.a libudpsocket.a libdnsresolver.a
-
 simplememtest: minns
-	(dig @localhost -p 43434 bla +short ble +short)& \
+	(dig @localhost -p 43434 bla bli)& \
 valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns
 
 test: minns
 	(dig @localhost -p 43434 bla +short ble +short)& ./minns
-
 
 # Dependencies
 DnsMessage.o: DnsMessage.cpp DnsMessage.h DnsResolver.h

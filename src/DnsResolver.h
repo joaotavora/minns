@@ -15,8 +15,6 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 
-// Project includes
-#include "Thread.h"
 
 class DnsResolver {
 public:
@@ -37,12 +35,13 @@ public:
     DnsResolver(
         const std::string& filename,
         const unsigned int maxsize = DEFAULT_CACHE_SIZE,
-        const unsigned int maxaliases = DEFAULT_MAX_ALIASES) throw (ResolveException);
+        const unsigned int maxaliases = DEFAULT_MAX_ALIASES,
+        const unsigned int maxialiases = DEFAULT_MAX_INVERSE_ALIASES) throw (ResolveException);
     ~DnsResolver();
 
     // public members
-    std::string* resolve(const std::string& address, std::string& result) throw (ResolveException);
-    struct in_addr* resolve(const std::string& address) throw (ResolveException);
+    std::string& resolve_to_string(const std::string& what) throw (ResolveException);
+    const std::list<struct in_addr>* resolve(const std::string& address) throw (ResolveException);
 
     // friends
     friend std::ostream& operator<<(std::ostream& os, const DnsResolver& dns);
@@ -50,45 +49,43 @@ public:
     // constants
     static const unsigned int DEFAULT_CACHE_SIZE = 20; // actually 15 + 1 should do it
     static const unsigned int DEFAULT_MAX_ALIASES = 5;
+    static const unsigned int DEFAULT_MAX_INVERSE_ALIASES = 5;
 
 private:
 
-    struct in_addr* resolve_helper(const std::string& address) throw (ResolveException);
-
+    // internal struct when parsing a line
     struct DnsEntry {
         struct in_addr ip;
-        std::vector<std::string> aliases;
+        std::list<std::string> aliases;
     };
 
     // Cache nested class
     class Cache {
     public:
-        Cache(unsigned int maxsize);
+        Cache(unsigned int maxsize, unsigned int maxialiases);
         ~Cache();
 
         // public members
-        struct in_addr* lookup(const std::string& address);
-        struct in_addr* insert(std::string& alias, struct in_addr ip);
+        std::list<struct in_addr>* lookup(const std::string& name);
+        std::list<struct in_addr>* insert(std::string& name, struct in_addr ip);
         bool full() const;
 
     private:
-        // map_value_t nested nested class and friends
-        class map_value_t;
+        // MapValue nested nested class and friends
+        class MapValue;
 
-        typedef std::map<std::string, map_value_t> map_t;
+        typedef std::map<std::string, MapValue> map_t;
         typedef std::list<map_t::iterator> list_t;
 
-        class map_value_t {
+        class MapValue {
         public:
-            map_value_t(
-                struct in_addr i,
-                std::list<map_t::iterator>::iterator li)
-                : ip(i),listiter(li) {}
-            struct in_addr ip;
+            MapValue(struct in_addr ip, std::list<map_t::iterator>::iterator li);
+            std::list<struct in_addr> ips;
             std::list<map_t::iterator>::iterator listiter;
         };
 
         unsigned int maxsize;
+        unsigned int maxipaliases;
 
         std::string print_head() const;
         std::string print_tail() const;
@@ -104,7 +101,6 @@ private:
     std::ifstream& file;
     unsigned int maxaliases;
     Cache& cache;
-    Thread::Mutex mutex;
 };
 
 #endif // DNS_RESOLVER_H

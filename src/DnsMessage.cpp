@@ -335,12 +335,20 @@ DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxm
     // keep the same questions
     questions.assign(query.questions.begin(), query.questions.end());
 
-    for (list<DnsQuestion>::iterator i =  questions.begin(); i != questions.end(); i++){
+    for (list<DnsQuestion>::iterator iter =  questions.begin(); iter != questions.end(); iter++){
         // provide answers using resolver
-        struct in_addr* result = resolver.resolve(i->QNAME);
-        if (result != NULL) {
-            ResourceRecord record(i->QNAME,*result);
-            answers.push_back(record);
+        try {
+            resolve_mutex.lock();
+            list<struct in_addr> result(*resolver.resolve(iter->QNAME));
+            resolve_mutex.unlock();
+            for (list<struct in_addr>::iterator jter = result.begin(); jter != result.end() ; jter++){
+                ResourceRecord record(iter->QNAME,*jter);
+                answers.push_back(record);
+            }
+        } catch (DnsResolver::ResolveException& e) {
+            // WARNING (cerr << "Caught exception: " << e.what() << endl);
+            resolve_mutex.unlock();
+            break;
         }
     }
     if (answers.size() == 0){

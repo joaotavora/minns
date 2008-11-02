@@ -20,7 +20,7 @@ public:
     public:
         ThreadException(int i, const char* s);
         ThreadException(const char* s);
-        friend std::ostream& operator<<(std::ostream& os, const ThreadException& e);
+        const char * what() const throw();
     private:
         int errno_number;
         static const ssize_t MAXERRNOMSG=200;

@@ -1,3 +1,8 @@
+// libc includes
+#include "string.h"
+#include "pthread.h"
+
+// Project includes
 #include "Thread.h"
 
 using namespace std;
@@ -66,17 +71,16 @@ Thread::ThreadException::ThreadException(const char* s)
 Thread::ThreadException::ThreadException(int i, const char* s)
     : std::runtime_error(s), errno_number(i) {}
 
-std::ostream& operator<<(std::ostream& os, const Thread::ThreadException& e){
-    std::string s("[Exception: ");
-    s += e.what();
+const char * Thread::ThreadException::what() const throw(){
+    static string s;
 
-    if (e.errno_number != 0){
+    s.assign(std::runtime_error::what());
+
+    if (errno_number != 0){
+        char buff[MAXERRNOMSG] = {0};
         s += ": ";
-        char buff[Thread::ThreadException::MAXERRNOMSG];
-        strerror_r(e.errno_number, buff, Thread::ThreadException::MAXERRNOMSG);
-        s += buff;
-    };
-    s += "]";
+        s.append(strerror_r(errno_number, buff, MAXERRNOMSG));
+    }
 
-    return os << s;
+    return s.c_str();
 }

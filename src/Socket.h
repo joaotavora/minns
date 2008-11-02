@@ -28,7 +28,7 @@ public:
         friend std::ostream& operator<<(std::ostream& os, const SocketException& e);
     private:
         int errno_number;
-        static const ssize_t MAXERRNOMSG=200;
+        static const size_t MAXERRNOMSG=200;
     };
 
 // Socket address
@@ -39,12 +39,11 @@ public:
         SocketAddress(const char* hostname, const int port) throw (SocketException);
         ~SocketAddress();
 
-        sockaddr_in& sockaddr;
+        sockaddr_in sockaddr;
         socklen_t socklen;
 
     private:
         friend std::ostream& operator<<(std::ostream& os, const SocketAddress& address);
-        SocketAddress(const SocketAddress& src) : sockaddr(*new sockaddr_in){}
     };
 
     // Common to Tcp and Udp Sockets
@@ -54,7 +53,7 @@ public:
 protected:
     // File descriptior and address
     const int   sockfd;
-    SocketAddress& address;
+    SocketAddress address;
 
     // protected virtual constructor and destructor
     Socket(int sock) throw ();
