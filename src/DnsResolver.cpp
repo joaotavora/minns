@@ -51,6 +51,21 @@ DnsResolver::~DnsResolver(){
 
 
 struct in_addr* DnsResolver::resolve(const std::string& address) throw (ResolveException) {
+    try {
+        struct in_addr* retval = NULL;
+        mutex.lock();
+        retval = resolve_helper(address);
+        mutex.unlock();
+        return retval;
+    } catch (ResolveException& e) {
+        mutex.unlock();
+        throw e;
+    }
+}
+
+
+struct in_addr* DnsResolver::resolve_helper(const std::string& address) throw (ResolveException) {
+
     // lookup `address' in the cache
     struct in_addr* result = cache.lookup(address);
     if (result != NULL) {
@@ -103,6 +118,9 @@ struct in_addr* DnsResolver::resolve(const std::string& address) throw (ResolveE
             if (result != NULL) return result;
         }
     }
+
+
+
     return NULL;
 }
 

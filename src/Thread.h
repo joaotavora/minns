@@ -30,8 +30,8 @@ public:
     class Runnable {
     public:
         Runnable();
-        virtual ~Runnable();
-        virtual void* main();
+        virtual ~Runnable() = 0;
+        virtual void* main() = 0;
     };
     // Single constructor
     Thread(Runnable& handler) throw ();
@@ -54,6 +54,12 @@ public:
     void run() throw (ThreadException);
     void join(void* retval) throw (ThreadException);
 
+    // accessor
+    pthread_t getTid() const {
+        return tid;
+    }
+
+    static pthread_t self();
 
 private:
     Runnable& handler;

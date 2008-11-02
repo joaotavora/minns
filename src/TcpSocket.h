@@ -19,25 +19,31 @@ public:
 
     // Server initialization
     void listen(const int max_connections=TcpSocket::DEFAULT_MAX_CONNECTIONS) throw (SocketException);
-    TcpSocket* accept() throw (SocketException);
+    TcpSocket* accept() const throw (SocketException);
 
-    // Data Transimission
-    std::string::size_type readline(std::string& result, const char delimiter = '\n') throw (SocketException);
-    void write (const std::string) const throw (SocketException);
-    void setMaxReceive(std::string::size_type howmany);
-    std::string::size_type getMaxReceive() const;
+    // Data Transmission - raw byte functions
+    size_t read(char* buff, const size_t howmany) throw (SocketException);
+    size_t write(const char* buff, const size_t howmany) throw (SocketException);
+
+    // Data Transmission - string functions
+    size_t readline(std::string& result, const char delimiter = '\n') throw (SocketException);
+    void writeline (const std::string) const throw (SocketException);
+
+
+    void setMaxReceive(size_t howmany);
+    size_t getMaxReceive() const;
 
     // Public constructor and destructor
     TcpSocket() throw (SocketException);
-    virtual ~TcpSocket();
+    ~TcpSocket();
 
 private:
-    // Connected sockets
-    std::vector<TcpSocket*> connected;
+    // Ownership of connected sockets
+    // std::vector<TcpSocket> connected;
 
     // Data Transmission
     std::string read_buffer;
-    std::string::size_type max_receive;
+    size_t max_receive;
 
     // Private constructor for new accept() sockets
     TcpSocket(int fd, SocketAddress& addr);

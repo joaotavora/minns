@@ -22,6 +22,9 @@ void* Thread::helper(void* args){
     return (static_cast<Runnable *>(args))->main();
 }
 
+pthread_t Thread::self(){
+    return ::pthread_self();
+}
 
 // Mutex nested class
 
@@ -39,20 +42,21 @@ Thread::Mutex::~Mutex(){
 Thread::Mutex::Mutex(const Mutex& src){} // private copy constructor does nothing
 
 void Thread::Mutex::unlock() throw (ThreadException){
+    cerr << "Thread " << self() << " unlocked mutex @" << hex << &mutex << endl;
     if ((errno=pthread_mutex_unlock(&mutex) != 0))
         throw ThreadException(errno, "Could not pthread_mutex_unlock()");
 }
 
 void Thread::Mutex::lock() throw (ThreadException){
+    cerr << "Thread " << self() << " locked mutex @" << hex << &mutex << endl;
     if ((errno=pthread_mutex_lock(&mutex) != 0))
         throw ThreadException(errno, "Could not pthread_mutex_lock()");
 }
 
+
 // Runnable "abstract" nested class
 Thread::Runnable::Runnable() {}
 Thread::Runnable::~Runnable() {}
-
-void* Thread::Runnable::main(){return NULL;}
 
 // ThreadException nested class
 

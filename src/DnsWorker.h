@@ -4,6 +4,7 @@
 // libc includes
 
 // stdl includes
+#include <iostream>
 
 // Project includes
 #include "Thread.h"
@@ -14,49 +15,67 @@
 
 class DnsWorker : public Thread::Runnable {
 public:
-    virtual ~DnsWorker();
+    virtual ~DnsWorker() = 0;
     void rest();
+
+    friend std::ostream& operator<<(std::ostream& os, const DnsWorker& worker);
 
 private:
     void work();
 
 protected:
-    virtual void   setup();
-    virtual size_t readQuery(char* buff, size_t maxmessage);
-    virtual size_t sendResponse(const char* buff, size_t maxmessage);
+    virtual void   setup() = 0;
+    virtual size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
+    virtual size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
+    virtual std::string what() const = 0;
+    void*   main ();
 
 protected:
     DnsWorker(DnsResolver& resolver, const size_t maxmessage);
+    int id;
 
 private:
     bool stop_flag;
     DnsResolver& resolver;
     const size_t maxmessage;
+    int retval;
+    static int uniqueid;
 };
 
-class UdpWorker : public DnsWorker{
+class UdpWorker : public DnsWorker {
 public:
-    UdpWorker(DnsResolver& resolver, const size_t maxmessage=UdpSocket::DEFAULT_MAX_MSG)
+    UdpWorker(DnsResolver& resolver, const UdpSocket& s, const size_t maxmessage=UdpSocket::DEFAULT_MAX_MSG)
         throw (Socket::SocketException);
 
     void   setup();
-    size_t readQuery(char* buff, size_t maxmessage);    
-    size_t sendResponse(const char* buff, size_t maxmessage);
+    size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException);
+    size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException);
+    std::string what() const;
+
 private:
-    UdpSocket& socket;
+    UdpWorker(const UdpWorker& src);
+
+    const UdpSocket& socket;
     Socket::SocketAddress clientAddress;
 };
 
 
 class TcpWorker : public DnsWorker{
 public:
-    TcpWorker(DnsResolver& resolver, TcpSocket& socket, Thread::Mutex& mutex, const size_t maxmessage);
-    size_t readQuery(char* buff, size_t maxmessage);    
-    size_t sendResponse(char* buff, size_t maxmessage);
+    TcpWorker(DnsResolver& resolver, const TcpSocket& socket, Thread::Mutex& mutex, const size_t maxmessage=TcpSocket::DEFAULT_MAX_MSG) throw ();
+    ~TcpWorker() throw ();
+
+    void setup() throw (Socket::SocketException);
+    size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException);
+    size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException);
+    std::string what() const;
+
 private:
-    TcpSocket& socket;
+    TcpWorker(const TcpWorker& src);
+
+    const TcpSocket& serverSocket;
     TcpSocket* connectedSocket;
-    Thread::Mutex& mutex;
+    Thread::Mutex& acceptMutex;
 };
 
 #endif // DNS_WORKER

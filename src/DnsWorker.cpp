@@ -1,4 +1,5 @@
 // stdl includes
+#include <sstream>
 
 // Project includes
 #include "DnsWorker.h"
@@ -6,21 +7,26 @@
 using namespace std;
 
 DnsWorker::DnsWorker(DnsResolver& _resolver, const size_t _maxmessage)
-    : resolver(_resolver), maxmessage(_maxmessage){}
+    : resolver(_resolver), maxmessage(_maxmessage){
+    stop_flag = false;
+    retval = -1;
+    id = uniqueid++;
+}
 
 DnsWorker::~DnsWorker(){}
 
 void DnsWorker::rest(){stop_flag = true;}
-    
+
+void* DnsWorker::main(){
+    work();
+    retval = 0;
+    return &retval;
+}
 
 void DnsWorker::work(){
-    stop_flag = false;
-
-    int queries=0;
-    
     char* const temp = new char[maxmessage];
 
-    cout << "DnsServer starting..." << endl;
+    cout << "DnsWorker " << this->what() << " starting..." << endl;
     while (!stop_flag){
         try {
             try {
@@ -53,51 +59,69 @@ void DnsWorker::work(){
         } catch (Socket::SocketException& e) {
             cerr << "Warning: socket exception: " << e.what() << ". Continuing..." << endl;
         }
-        queries++;
-        if (queries==2) break;
     }
     delete []temp;
 }
 
+int DnsWorker::uniqueid = 0;
+
 // UdpWorker
 
-UdpWorker::UdpWorker(uint16_t _port, DnsResolver& resolver, const size_t maxmessage) throw (Socket::SocketException) 
-    : DnsWorker(resolver, maxmessage) {
-    socket.bind_any(_port);
-}
+UdpWorker::UdpWorker(DnsResolver& resolver, const UdpSocket& s, const size_t maxmessage) throw (Socket::SocketException)
+    : DnsWorker(resolver, maxmessage), socket(s) {}
 
-void UdpWorker::setup(){} // Udp needs no special setup
+void UdpWorker::setup(){
+    cerr << "UdpWorker starting up..." << endl;
+} // Udp needs no special setup
 
-size_t UdpWorker::readQuery(char* buff, const size_t maxmessage){
+size_t UdpWorker::readQuery(char* buff, const size_t maxmessage) throw (Socket::SocketException){
     return socket.recvfrom(buff, clientAddress, maxmessage);
 }
 
-size_t UdpWorker::sendResponse(const char* buff, const size_t maxmessage){
+size_t UdpWorker::sendResponse(const char* buff, const size_t maxmessage) throw (Socket::SocketException){
     return socket.sendto(buff, clientAddress, maxmessage);
+}
+
+string UdpWorker::what() const{
+    stringstream ss;
+    ss << "[UdpWorker: id = \'" << id << "\']";
+    return ss.str();
 }
 
 // TcpWorker
 
-TcpWorker::TcpWorker(uint16_t _port, DnsResolver& resolver, TcpSocket& socket, Thread::Mutex& mutex, const size_t maxmessage)
-    throw (Socket::SocketException) 
+TcpWorker::TcpWorker(DnsResolver& resolver, const TcpSocket& socket, Thread::Mutex& mutex, const size_t maxmessage)
+    throw ()
     : DnsWorker(resolver, maxmessage),
       serverSocket(socket),
       acceptMutex(mutex)
 {}
 
-void TcpWorker::setup(){
+TcpWorker::~TcpWorker() throw () {
+    connectedSocket->close();
+    delete connectedSocket;
+}
+
+void TcpWorker::setup() throw (Socket::SocketException){
+    cerr << "TcpWorker " << id << " starting up..." << endl;
     acceptMutex.lock();
-    connectedSocket = socket.accept();
+    connectedSocket = serverSocket.accept();
+    cerr << "TcpWorker " << id << " accepted connection..." << endl;
     acceptMutex.unlock();
 } // Tcp needs no special setup
 
-size_t TcpWorker::readQuery(char* buff, const size_t maxmessage){
+size_t TcpWorker::readQuery(char* buff, const size_t maxmessage) throw(Socket::SocketException){
     return connectedSocket->read(buff, maxmessage);
 }
 
-size_t TcpWorker::sendResponse(const char* buff, const size_t maxmessage){
+size_t TcpWorker::sendResponse(const char* buff, const size_t maxmessage) throw(Socket::SocketException){
     return connectedSocket->write(buff, maxmessage);
 }
 
+string TcpWorker::what() const{
+    stringstream ss;
+    ss << "[TcpWorker: id = \'" << id << "\']";
+    return ss.str();
+}
 
 

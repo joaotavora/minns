@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
-#include <vector>
+#include <list>
 
 // project includes
 #include "DnsServer.h"
@@ -20,20 +20,54 @@ DnsServer::DnsServer (
     const unsigned int udpport = DEFAULT_UDP_PORT,
     const unsigned int tcpport = DEFAULT_TCP_PORT,
     const unsigned int udpworkers = DEFAULT_UDP_WORKERS,
-    const unsigned int tcpworkers = DEFAULT_TCP_WORKERS )  throw(std::exception)
+    const unsigned int tcpworkers = DEFAULT_TCP_WORKERS )
+    throw(std::exception)
     {
+
+        if (udpworkers > 0){
+            udp_serversocket.bind_any(udpport);
+        }
+
+        if (tcpworkers > 0){
+            tcp_serversocket.bind_any(tcpport);
+            tcp_serversocket.listen();
+        }
+
         for (unsigned int i=0; i < udpworkers; i++)
-            workers.push_back(new UdpWorker(udpport, resolver));
+            workers.push_back(new UdpWorker(resolver, udp_serversocket));
 
         for (unsigned int i=0; i < tcpworkers; i++)
-            workers.push_back(new TcpWorker(tcpport, resolver));
+            workers.push_back(new TcpWorker(resolver, tcp_serversocket, acceptMutex));
     }
 
 DnsServer::~DnsServer(){
+    for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++)
+        delete *iter;
 }
 
 void DnsServer::start(){
-    
+    list<Thread> threads;
+
+    cerr << "DnsServer creating worker threads..." << endl;
+    for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++){
+        Thread t(**iter);
+        threads.push_back(t);
+    }
+
+    cerr << "DnsServer running worker threads..." << endl;
+    for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++)
+        iter->run();
+
+    cerr << "DnsServer waiting for worker threads to finish..." << endl;
+    for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++)
+    {
+        int retval;
+        iter->join(&retval);
+        cerr << "   DnsServer: Worker thread tid = " << iter->getTid() << " finished with retval " << retval << endl;
+    }
+
+
+    cerr << "DnsServer reports all threads joined" << endl;
 }
 
 // unit tests
@@ -46,8 +80,6 @@ void initialize(){
     else
         cerr << "Error while opening the file" << endl;
 
-    // FIXME: doesn't address the terminate() SIGSEGV problems, this needs
-    // flushing on atexit()
 }
 
 int main(){

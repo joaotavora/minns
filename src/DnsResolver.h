@@ -15,6 +15,9 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 
+// Project includes
+#include "Thread.h"
+
 class DnsResolver {
 public:
     // Resolve exception
@@ -49,6 +52,9 @@ public:
     static const unsigned int DEFAULT_MAX_ALIASES = 5;
 
 private:
+
+    struct in_addr* resolve_helper(const std::string& address) throw (ResolveException);
+
     struct DnsEntry {
         struct in_addr ip;
         std::vector<std::string> aliases;
@@ -98,6 +104,7 @@ private:
     std::ifstream& file;
     unsigned int maxaliases;
     Cache& cache;
+    Thread::Mutex mutex;
 };
 
 #endif // DNS_RESOLVER_H

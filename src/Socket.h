@@ -59,7 +59,7 @@ protected:
     // protected virtual constructor and destructor
     Socket(int sock) throw ();
     Socket(int sock, SocketAddress& a) throw ();
-    virtual ~Socket();
+    virtual ~Socket() = 0;
 
     // Printing
     friend std::ostream& operator<<(std::ostream& os, const Socket& sock);
