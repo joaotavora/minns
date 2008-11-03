@@ -25,15 +25,13 @@ test: minns
 memtest: minns
 	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns $(TESTOPTS)
 
-# Dependencies
+# Automatic generated dependencies
 DnsMessage.o: DnsMessage.cpp DnsMessage.h DnsResolver.h Thread.h
 DnsResolver.o: DnsResolver.cpp DnsResolver.h
 DnsServer.o: DnsServer.cpp helper.h DnsServer.h Socket.h UdpSocket.h \
   DnsMessage.h DnsResolver.h Thread.h DnsWorker.h TcpSocket.h
 DnsWorker.o: DnsWorker.cpp helper.h DnsWorker.h Thread.h UdpSocket.h \
   Socket.h TcpSocket.h DnsResolver.h DnsMessage.h
-EchoHandler.o: EchoHandler.cpp EchoHandler.h
-EchoServer.o: EchoServer.cpp EchoServer.h Socket.h TcpSocket.h Thread.h
 helper.o: helper.cpp helper.h
 minns.o: minns.cpp helper.h DnsServer.h Socket.h UdpSocket.h DnsMessage.h \
   DnsResolver.h Thread.h DnsWorker.h TcpSocket.h
