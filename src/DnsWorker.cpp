@@ -29,46 +29,45 @@ void* DnsWorker::main(){
 
 void DnsWorker::work(){
     char* const temp = new char[maxmessage];
-
+    memset(temp,0,maxmessage);
     cout << "DnsWorker " << this->what() << " starting..." << endl;
 
-
-again:
-    setup(); // tcp performs accept here, udp does nothing
-    // while (!stop_flag){
-    for (int i=0; i<4 ; i++){
-        try {
+    for (int i=0; i<2 ; i++){
+        setup(); // tcp performs accept here, udp does nothing
+        while (!stop_flag){
             try {
-                size_t read = readQuery(temp, maxmessage);
-                if (read == 0)
-                    throw Socket::SocketException("Read 0 bytes");
-                cerr << "\nRead " << read << " bytes: " << endl;
-                DnsMessage query(temp, read);
-                cout << "Query is " << query << endl;
-                DnsResponse response(query, resolver, maxmessage);
-                cout << "Response is " << response << endl;
                 try {
-                    size_t towrite = response.serialize(temp, maxmessage);
+                    size_t read = readQuery(temp, maxmessage);
+                    if (read == 0)
+                        throw Socket::SocketException("Read 0 bytes");
+                    cerr << "\nRead " << read << " bytes: " << endl;
+                    DnsMessage query(temp, read);
+                    cout << "Query is " << query << endl;
+                    DnsResponse response(query, resolver, maxmessage);
+                    cout << "Response is " << response << endl;
+                    try {
+                        size_t towrite = response.serialize(temp, maxmessage);
+                        size_t written = sendResponse(temp, towrite);
+                        cout << "\nSent " << written << " bytes: " << endl;
+                    } catch (DnsMessage::SerializeException& e) {
+                        throw DnsMessage::DnsException(query.getID(), DnsErrorResponse::SERVER_FAILURE, e.what());
+                    }
+                } catch (DnsMessage::DnsException& e){
+                    cerr << "Warning: message exception: " << e.what() << endl;
+                    DnsErrorResponse error_response(e);
+                    cerr << "Responding with " << error_response << endl;
+                    size_t towrite = error_response.serialize(temp, maxmessage);
+                    // hexdump(temp, towrite);
                     size_t written = sendResponse(temp, towrite);
-                    cout << "\nSent " << written << " bytes: " << endl;
-                } catch (DnsMessage::SerializeException& e) {
-                    throw DnsMessage::DnsException(query.getID(), DnsErrorResponse::SERVER_FAILURE, e.what());
+                    cerr << "\nSent " << written << " bytes: " << endl;
                 }
-            } catch (DnsMessage::DnsException& e){
-                cerr << "Warning: message exception: " << e.what() << endl;
-                DnsErrorResponse error_response(e);
-                cerr << "Responding with " << error_response << endl;
-                size_t towrite = error_response.serialize(temp, maxmessage);
-                // hexdump(temp, towrite);
-                size_t written = sendResponse(temp, towrite);
-                cerr << "\nSent " << written << " bytes: " << endl;
+            } catch (DnsMessage::SerializeException& e) {
+                cerr << "Warning: could not serialize error respose: " << e.what() << endl;
+            } catch (Socket::SocketException& e) {
+                cerr << "Warning: socket exception: " << e.what() << ". Continuing..." << endl;
+                teardown();
+                break;
             }
-        } catch (DnsMessage::SerializeException& e) {
-            cerr << "Warning: could not serialize error respose: " << e.what() << endl;
-        } catch (Socket::SocketException& e) {
-            cerr << "Warning: socket exception: " << e.what() << ". Continuing..." << endl;
-            teardown();
-            goto again;
         }
     }
     delete []temp;
@@ -113,8 +112,7 @@ TcpWorker::TcpWorker(DnsResolver& resolver, const TcpSocket& socket, Thread::Mut
 {}
 
 TcpWorker::~TcpWorker() throw () {
-    connectedSocket->close();
-    delete connectedSocket;
+    delete connectedSocket; // for safety
 }
 
 void TcpWorker::setup() throw (Socket::SocketException){
@@ -127,13 +125,13 @@ void TcpWorker::setup() throw (Socket::SocketException){
 
 size_t TcpWorker::readQuery(char* buff, const size_t maxmessage) throw(Socket::SocketException){
     char temp[2]={0};
-    cerr << "      (Starting read of new length information)" << endl;
+    // cerr << "      (Starting read of new length information)" << endl;
     if (connectedSocket->read(temp,2) != 2)
         throw Socket::SocketException("No length information for new message (probably EOF)");
-    size_t messagesize = ntohs(*(uint16_t*)(&buff[0]));
-    hexdump(temp,2);
+    uint16_t messagesize = ntohs(*(uint16_t*)&temp[0]);
+    // hexdump(temp,2);
     if (messagesize < maxmessage){
-        cerr << "      (Advertised size was" << messagesize << ")" << endl;
+        // cerr << "      (Advertised size was" << messagesize << ")" << endl;
         return connectedSocket->read(buff, maxmessage);
     } else {
         stringstream ss;
@@ -147,6 +145,7 @@ void TcpWorker::teardown() throw (Socket::SocketException){
     cerr << "TcpWorker " << id << " tearing down connection..." << endl;
     connectedSocket->close();
     delete connectedSocket;
+    connectedSocket = NULL;
 }
 
 size_t TcpWorker::sendResponse(const char* buff, const size_t buflen) throw(Socket::SocketException){

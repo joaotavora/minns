@@ -1,5 +1,19 @@
+// libc includes
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <limits.h>
+#include <errno.h>
+#include <string.h>
+
+// stdlib includes
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <string>
+
+// Project includes
+#include "helper.h"
 
 void hexdump(void *pAddressIn, long  lSize)
 {
@@ -53,3 +67,40 @@ void hexdump(void *pAddressIn, long  lSize)
       buf.lSize   -= lOutLen;
    }
 }
+
+unsigned int strtol_helper(char c, char* arg, unsigned int const* defaults) throw (std::runtime_error){
+    static std::stringstream ss;
+    char *endptr;
+    long val;
+
+    errno = 0;
+    val = strtol(arg, &endptr, 0);
+    
+    if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN))
+        || (errno != 0 && val == 0)) {
+        ss << "Error reading value of -" << c << ": " << strerror(errno) << ". Using default value";
+        throw std::runtime_error(ss.str().c_str());
+    }
+    
+    if (endptr == arg) {
+        ss << "Non numeric value of -" << c << " . Using default value";
+        throw std::runtime_error(ss.str().c_str());
+    }
+
+    if (*endptr != '\0')        /* Not necessarily an error... */
+        std::cerr << "   (Further characters after number ignored: \'" << endptr << "\')" << std::endl;
+
+    if (val > (long)defaults[1]) {
+        ss << "Value for -" << c << " is too big: (maximum is " << defaults[1] << ")";
+        throw std::runtime_error(ss.str().c_str());
+    }
+
+    if (val < (long)defaults[0]) {
+        ss << "Value for -" << c << " is too small: (minimum is " << defaults[0] << ")";
+        throw std::runtime_error(ss.str().c_str());
+    }
+        
+    return (unsigned int)val;
+}
+
+

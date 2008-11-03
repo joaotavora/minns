@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <limits.h>
 
 // stdl includes
 
@@ -11,7 +12,14 @@
 
 #include "DnsResolver.h"
 
+// usings
+
 using namespace std;
+
+// non integral type constant setting
+const unsigned int DnsResolver::DEFAULT_CACHE_SIZE[3] = {20, 1, LONG_MAX};
+const unsigned int DnsResolver::DEFAULT_MAX_ALIASES[3] = {5, 1, 512};
+const unsigned int DnsResolver::DEFAULT_MAX_INVERSE_ALIASES[3] = {5, 1, 512};
 
 DnsResolver::DnsResolver(
     const std::string& filename,

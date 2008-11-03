@@ -31,8 +31,11 @@ tcptest: minns
 	(sleep 1;dig @localhost -p 43434 bla +short +tcp ble +short +tcp)& ./minns
 
 tcpmemtest: minns
-	(dig @localhost -p 43434 bla +short +tcp ble +short +tcp)& \
+	(sleep 1;dig @localhost -p 43434 bla +short +tcp ble +short +tcp)&\
 valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns
+
+optionstest: minns
+	./minns -f ../test/module/simplehosts.txt -c 10asd -x -m 2 -i 1 -t -1 -u 43434 -d 1 -p 1
 
 # Dependencies
 DnsMessage.o: DnsMessage.cpp DnsMessage.h DnsResolver.h Thread.h
@@ -47,6 +50,7 @@ Socket.o: Socket.cpp Socket.h
 TcpSocket.o: TcpSocket.cpp TcpSocket.h Socket.h
 Thread.o: Thread.cpp Thread.h
 UdpSocket.o: UdpSocket.cpp UdpSocket.h Socket.h
+helper.o: helper.cpp helper.h
 
 
 

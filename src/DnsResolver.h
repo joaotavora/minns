@@ -34,9 +34,9 @@ public:
     // public constructor/destructor
     DnsResolver(
         const std::string& filename,
-        const unsigned int maxsize = DEFAULT_CACHE_SIZE,
-        const unsigned int maxaliases = DEFAULT_MAX_ALIASES,
-        const unsigned int maxialiases = DEFAULT_MAX_INVERSE_ALIASES) throw (ResolveException);
+        const unsigned int maxsize = DEFAULT_CACHE_SIZE[0],
+        const unsigned int maxaliases = DEFAULT_MAX_ALIASES[0],
+        const unsigned int maxialiases = DEFAULT_MAX_INVERSE_ALIASES[0]) throw (ResolveException);
     ~DnsResolver();
 
     // public members
@@ -47,9 +47,9 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const DnsResolver& dns);
 
     // constants
-    static const unsigned int DEFAULT_CACHE_SIZE = 20; // actually 15 + 1 should do it
-    static const unsigned int DEFAULT_MAX_ALIASES = 5;
-    static const unsigned int DEFAULT_MAX_INVERSE_ALIASES = 5;
+    static const unsigned int DEFAULT_CACHE_SIZE[3];
+    static const unsigned int DEFAULT_MAX_ALIASES[3];
+    static const unsigned int DEFAULT_MAX_INVERSE_ALIASES[3];
 
 private:
 

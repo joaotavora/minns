@@ -27,6 +27,15 @@ public:
     void start();
     void stop();
 
+    static const unsigned int MAX_FILE_NAME = 512;
+    static const char DEFAULT_HOSTS_FILE[MAX_FILE_NAME];
+
+
+    static const unsigned int DEFAULT_UDP_PORT[3];
+    static const unsigned int DEFAULT_TCP_PORT[3];
+    static const unsigned int DEFAULT_UDP_WORKERS[3];
+    static const unsigned int DEFAULT_TCP_WORKERS[3];
+
 private:
     std::list<DnsWorker*> workers;
 
@@ -34,11 +43,6 @@ private:
     Thread::Mutex acceptMutex;
     TcpSocket tcp_serversocket;
     UdpSocket udp_serversocket;
-
-    static const unsigned int DEFAULT_UDP_PORT = 53;
-    static const unsigned int DEFAULT_TCP_PORT = 53;
-    static const unsigned int DEFAULT_UDP_WORKERS = 1;
-    static const unsigned int DEFAULT_TCP_WORKERS = 5;
 };
 
 #endif // DNS_SERVER_H
