@@ -130,7 +130,8 @@ size_t TcpWorker::readQuery(char* buff, const size_t maxmessage) throw(Socket::S
     cerr << "      (Starting read of new length information)" << endl;
     if (connectedSocket->read(temp,2) != 2)
         throw Socket::SocketException("No length information for new message (probably EOF)");
-    size_t messagesize = (*(uint16_t*)(&buff[0]));
+    size_t messagesize = ntohs(*(uint16_t*)(&buff[0]));
+    hexdump(temp,2);
     if (messagesize < maxmessage){
         cerr << "      (Advertised size was" << messagesize << ")" << endl;
         return connectedSocket->read(buff, maxmessage);
