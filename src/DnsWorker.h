@@ -34,21 +34,24 @@ protected:
     void*   main ();
 
 protected:
-    DnsWorker(DnsResolver& resolver, const size_t maxmessage);
+    DnsWorker(DnsResolver& _resolver, Thread::Mutex &_resolve_mutex, const size_t _maxmessage);
     int id;
 
 private:
     bool stop_flag;
-    // time_t last_punch;
     DnsResolver& resolver;
     const size_t maxmessage;
     int retval;
     static int uniqueid;
+
+    Thread::Mutex& resolve_mutex;
+    
+    DnsWorker(const DnsWorker&);
 };
 
 class UdpWorker : public DnsWorker {
 public:
-    UdpWorker(DnsResolver& resolver, const UdpSocket& s, const size_t maxmessage=UdpSocket::DEFAULT_MAX_MSG)
+    UdpWorker(DnsResolver& resolver, const UdpSocket& s, Thread::Mutex& resolvemutex, const size_t maxmessage=UdpSocket::DEFAULT_MAX_MSG)
         throw (Socket::SocketException);
 
     void   setup();
@@ -67,7 +70,10 @@ private:
 
 class TcpWorker : public DnsWorker{
 public:
-    TcpWorker(DnsResolver& resolver, const TcpSocket& socket, Thread::Mutex& mutex, const size_t maxmessage=TcpSocket::DEFAULT_MAX_MSG) throw ();
+    TcpWorker(
+        DnsResolver& resolver, const TcpSocket& socket, Thread::Mutex& acceptmutex,
+        Thread::Mutex& resolvemutex, const size_t maxmessage=TcpSocket::DEFAULT_MAX_MSG)
+        throw ();
     ~TcpWorker() throw ();
 
     void setup() throw (Socket::SocketException);

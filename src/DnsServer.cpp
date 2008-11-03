@@ -45,10 +45,10 @@ DnsServer::DnsServer (
         }
 
         for (unsigned int i=0; i < udpworkers; i++)
-            workers.push_back(new UdpWorker(resolver, udp_serversocket));
+            workers.push_back(new UdpWorker(resolver, udp_serversocket, resolve_mutex));
 
         for (unsigned int i=0; i < tcpworkers; i++)
-            workers.push_back(new TcpWorker(resolver, tcp_serversocket, acceptMutex));
+            workers.push_back(new TcpWorker(resolver, tcp_serversocket, accept_mutex, resolve_mutex));
     }
 
 DnsServer::~DnsServer(){

@@ -10,8 +10,8 @@
 
 using namespace std;
 
-DnsWorker::DnsWorker(DnsResolver& _resolver, const size_t _maxmessage)
-    : resolver(_resolver), maxmessage(_maxmessage){
+DnsWorker::DnsWorker(DnsResolver& _resolver, Thread::Mutex &_resolve_mutex, const size_t _maxmessage)
+    : resolver(_resolver), maxmessage(_maxmessage), resolve_mutex(_resolve_mutex){
     stop_flag = false;
     retval = -1;
     id = uniqueid++;
@@ -43,14 +43,17 @@ void DnsWorker::work(){
                     cerr << "\nRead " << read << " bytes: " << endl;
                     DnsMessage query(temp, read);
                     cout << "Query is " << query << endl;
-                    DnsResponse response(query, resolver, maxmessage);
-                    cout << "Response is " << response << endl;
                     try {
+                        resolve_mutex.lock();
+                        DnsResponse response(query, resolver, maxmessage);
+                        resolve_mutex.unlock();
+                        cout << "Response is " << response << endl;
                         size_t towrite = response.serialize(temp, maxmessage);
                         size_t written = sendResponse(temp, towrite);
                         cout << "\nSent " << written << " bytes: " << endl;
-                    } catch (DnsMessage::SerializeException& e) {
-                        throw DnsMessage::DnsException(query.getID(), DnsErrorResponse::SERVER_FAILURE, e.what());
+                    } catch (DnsMessage::DnsException& e){
+                        resolve_mutex.unlock();
+                        throw e;
                     }
                 } catch (DnsMessage::DnsException& e){
                     cerr << "Warning: message exception: " << e.what() << endl;
@@ -77,8 +80,8 @@ int DnsWorker::uniqueid = 0;
 
 // UdpWorker
 
-UdpWorker::UdpWorker(DnsResolver& resolver, const UdpSocket& s, const size_t maxmessage) throw (Socket::SocketException)
-    : DnsWorker(resolver, maxmessage), socket(s) {}
+UdpWorker::UdpWorker(DnsResolver& resolver, const UdpSocket& s, Thread::Mutex& _resolvemutex, const size_t maxmessage) throw (Socket::SocketException)
+    : DnsWorker(resolver, _resolvemutex, maxmessage), socket(s) {}
 
 void UdpWorker::setup(){
     cerr << "UdpWorker " << id << " setting up..." << endl;
@@ -104,11 +107,11 @@ string UdpWorker::what() const{
 
 // TcpWorker
 
-TcpWorker::TcpWorker(DnsResolver& resolver, const TcpSocket& socket, Thread::Mutex& mutex, const size_t maxmessage)
+TcpWorker::TcpWorker(DnsResolver& resolver, const TcpSocket& socket, Thread::Mutex& acceptmutex,  Thread::Mutex& _resolvemutex, const size_t maxmessage)
     throw ()
-    : DnsWorker(resolver, maxmessage),
+    : DnsWorker(resolver, _resolvemutex, maxmessage),
       serverSocket(socket),
-      acceptMutex(mutex)
+      acceptMutex(acceptmutex)
 {}
 
 TcpWorker::~TcpWorker() throw () {

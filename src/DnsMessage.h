@@ -150,9 +150,6 @@ public:
     DnsResponse(const DnsMessage& q, DnsResolver& resolver, const size_t maxresponse) throw (DnsException);
     ~DnsResponse();
     const static char NO_ERROR = 0;
-
-private:
-    Thread::Mutex resolve_mutex;
 };
 
 class DnsErrorResponse : public DnsMessage {

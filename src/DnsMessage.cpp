@@ -337,18 +337,10 @@ DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxm
 
     for (list<DnsQuestion>::iterator iter =  questions.begin(); iter != questions.end(); iter++){
         // provide answers using resolver
-        try {
-            resolve_mutex.lock();
-            list<struct in_addr> result(*resolver.resolve(iter->QNAME));
-            resolve_mutex.unlock();
-            for (list<struct in_addr>::iterator jter = result.begin(); jter != result.end() ; jter++){
-                ResourceRecord record(iter->QNAME,*jter);
-                answers.push_back(record);
-            }
-        } catch (DnsResolver::ResolveException& e) {
-            // WARNING (cerr << "Caught exception: " << e.what() << endl);
-            resolve_mutex.unlock();
-            break;
+        list<struct in_addr> result(*resolver.resolve(iter->QNAME));
+        for (list<struct in_addr>::iterator jter = result.begin(); jter != result.end() ; jter++){
+            ResourceRecord record(iter->QNAME,*jter);
+            answers.push_back(record);
         }
     }
     if (answers.size() == 0){

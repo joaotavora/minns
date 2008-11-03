@@ -40,7 +40,9 @@ private:
     std::list<DnsWorker*> workers;
 
     bool stopFlag;
-    Thread::Mutex acceptMutex;
+    Thread::Mutex accept_mutex;
+    Thread::Mutex resolve_mutex;
+    
     TcpSocket tcp_serversocket;
     UdpSocket udp_serversocket;
 };
