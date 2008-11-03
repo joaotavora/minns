@@ -49,6 +49,7 @@ public:
     // Common to Tcp and Udp Sockets
     void bind_any (const int port) throw (SocketException);
     void close() throw (SocketException);
+    void setsockopt(int level, int optname, const void* optval, socklen_t optlen) throw (SocketException);
 
 protected:
     // File descriptior and address

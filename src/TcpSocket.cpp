@@ -19,23 +19,13 @@ TcpSocket::TcpSocket() throw (Socket::SocketException)
     if (sockfd == -1){
         throw SocketException(errno, "Could not create socket");
     }
-
-    int on = 1;
-    if (setsockopt (sockfd,
-            SOL_SOCKET,
-            SO_REUSEADDR,
-            (const char*) &on,
-            sizeof (on)) != 0)
-    {
-        throw SocketException(errno, "Could not setsockopt");
-    }
 }
 
 TcpSocket::TcpSocket(int fd, SocketAddress& addr)
     :
     Socket(fd), maxreceive(DEFAULT_MAX_MSG) {
-    address = addr;
-    }
+    address = addr; // use SocketAddress's copy constructor
+}
 
 TcpSocket::~TcpSocket(){
 }

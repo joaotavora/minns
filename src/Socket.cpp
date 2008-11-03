@@ -43,6 +43,12 @@ void Socket::close() throw (SocketException){
         throw SocketException(errno, "Could not close()");
 }
 
+void Socket::setsockopt(int level, int optname, const void* optval, socklen_t optlen) throw (SocketException){
+    if (::setsockopt(sockfd, level, optname, optval, optlen) == -1){
+        throw SocketException(errno, "Could not setsockopt()");
+    }
+}
+
 Socket::~Socket(){
     // cout << "Socket dtor for: " << *this << endl;
     if (!closed){

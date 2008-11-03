@@ -21,7 +21,8 @@ public:
         const unsigned int udpport,
         const unsigned int tcpport,
         const unsigned int udpworkers,
-        const unsigned int tcpworkers) throw (std::exception);
+        const unsigned int tcpworkers,
+        const unsigned int tcptimeout) throw (std::exception);
     ~DnsServer();
 
     void start();
@@ -35,6 +36,7 @@ public:
     static const unsigned int DEFAULT_TCP_PORT[3];
     static const unsigned int DEFAULT_UDP_WORKERS[3];
     static const unsigned int DEFAULT_TCP_WORKERS[3];
+    static const unsigned int DEFAULT_TCP_TIMEOUT[3];
 
 private:
     std::list<DnsWorker*> workers;

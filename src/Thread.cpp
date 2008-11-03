@@ -47,15 +47,16 @@ Thread::Mutex::~Mutex(){
 Thread::Mutex::Mutex(const Mutex& src){} // private copy constructor does nothing
 
 void Thread::Mutex::unlock() throw (ThreadException){
-    cerr << "Thread " << self() << " unlocked mutex @" << hex << &mutex << endl;
     if ((errno=pthread_mutex_unlock(&mutex) != 0))
         throw ThreadException(errno, "Could not pthread_mutex_unlock()");
+    cerr << "        (Thread " << hex << self() << " unlocked mutex @" << hex << &mutex << ")"<< endl << dec;
 }
 
 void Thread::Mutex::lock() throw (ThreadException){
-    cerr << "Thread " << self() << " locked mutex @" << hex << &mutex << endl;
+    cerr << "        (Thread " << hex << self() << " waiting for mutex @" << hex << &mutex << ")" << endl << dec;
     if ((errno=pthread_mutex_lock(&mutex) != 0))
         throw ThreadException(errno, "Could not pthread_mutex_lock()");
+    cerr << "        (Thread " << hex << self() << " locked mutex @" << hex << &mutex << ")" << endl << dec;
 }
 
 

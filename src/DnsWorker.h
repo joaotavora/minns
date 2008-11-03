@@ -18,7 +18,6 @@ public:
     virtual ~DnsWorker() = 0;
     void rest();
 
-    virtual std::string what() const = 0;
     // time_t getPunch();
 
 
@@ -31,6 +30,10 @@ protected:
     virtual void   teardown() = 0;
     virtual size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
     virtual size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
+    virtual std::string name() const = 0;
+
+    std::string what() const;
+
     void*   main ();
 
 protected:
@@ -58,9 +61,9 @@ public:
     void   teardown();
     size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException);
     size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException);
-    std::string what() const;
-
+    
 private:
+    std::string name() const;
     UdpWorker(const UdpWorker& src);
 
     const UdpSocket& socket;
@@ -72,7 +75,7 @@ class TcpWorker : public DnsWorker{
 public:
     TcpWorker(
         DnsResolver& resolver, const TcpSocket& socket, Thread::Mutex& acceptmutex,
-        Thread::Mutex& resolvemutex, const size_t maxmessage=TcpSocket::DEFAULT_MAX_MSG)
+        Thread::Mutex& resolvemutex, unsigned int timeout, const size_t maxmessage=TcpSocket::DEFAULT_MAX_MSG)
         throw ();
     ~TcpWorker() throw ();
 
@@ -80,14 +83,16 @@ public:
     void   teardown() throw (Socket::SocketException);
     size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException);
     size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException); /*  */
-    std::string what() const;
 
 private:
+    std::string name() const;
     TcpWorker(const TcpWorker& src);
 
     const TcpSocket& serverSocket;
     TcpSocket* connectedSocket;
     Thread::Mutex& acceptMutex;
+
+    struct timeval timeout_tv;
 };
 
 #endif // DNS_WORKER
