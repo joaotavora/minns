@@ -35,7 +35,7 @@ optionstest: minns
 	./minns -f ../test/module/simplehosts.txt -c 10asd -x -m 2 -i 1 -t -1 -u 43434 -d 1 -p 1
 
 memtest: minns
-	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns -f simplehosts.txt -t 43434 -u 43434 -p 2
+	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns -f simplehosts.txt -t 43434 -u 43434 -p 0
 
 # Dependencies
 DnsMessage.o: DnsMessage.cpp DnsMessage.h DnsResolver.h Thread.h

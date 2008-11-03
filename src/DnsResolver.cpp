@@ -153,9 +153,12 @@ list<struct in_addr> *DnsResolver::Cache::lookup(const string& name){
     if (i != local_map.end() ){
         // remove the iterator from the list pointing to the recently found
         // element. Do this with listiter!
-        local_list.erase((i->second).listiter);
+        MapValue *tempvalue = &(i->second);
+        local_list.erase(tempvalue->listiter);
         // add it again at the front of the list
         local_list.push_front(i);
+        // update the listiter pointer in the MapValue element
+        tempvalue->listiter = local_list.begin();
         return &((i->second).ips);
     }
     return NULL;
