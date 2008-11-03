@@ -13,16 +13,14 @@ using namespace std;
 
 TcpSocket::TcpSocket() throw (Socket::SocketException)
     :
-    Socket(socket (AF_INET, SOCK_STREAM, 0)),
-    max_receive(DEFAULT_MAX_MSG)
-{
+    Socket(socket (AF_INET, SOCK_STREAM, 0)), maxreceive(DEFAULT_MAX_MSG){
     // cout << "TcpSocket ctor\n";
 
     if (sockfd == -1){
         throw SocketException(errno, "Could not create socket");
     }
 
-    int on = 0;
+    int on = 1;
     if (setsockopt (sockfd,
             SOL_SOCKET,
             SO_REUSEADDR,
@@ -35,8 +33,7 @@ TcpSocket::TcpSocket() throw (Socket::SocketException)
 
 TcpSocket::TcpSocket(int fd, SocketAddress& addr)
     :
-    Socket(fd),
-    max_receive(DEFAULT_MAX_MSG) {
+    Socket(fd), maxreceive(DEFAULT_MAX_MSG) {
     address = addr;
     }
 
@@ -76,13 +73,10 @@ TcpSocket* TcpSocket::accept() const throw (SocketException){
 
 // Data Transmission - raw byte functions
 size_t TcpSocket::read(char* buff, const size_t howmany) throw (SocketException){
-    size_t read_cnt;
-    size_t remaining = howmany;
+    size_t read_cnt = 0;
 
 again:
-    read_cnt = ::read(sockfd,buff,remaining);
-    remaining -= read_cnt;
-
+    read_cnt = ::read(sockfd,buff,howmany);
     if (read_cnt < 0){
         // No data read, interruption or maybe more serious error
         if (errno == EINTR)
@@ -91,7 +85,7 @@ again:
             throw new SocketException(errno, "read() error");
         }
     }
-    return howmany - remaining;
+    return read_cnt;
 }
 
 size_t TcpSocket::write(const char* buff, const size_t howmany) throw (SocketException){
@@ -122,15 +116,15 @@ again:
 }
 
 
+size_t TcpSocket::readline(string& retval, const char delimiter, const size_t maxlen) throw (SocketException){
+    size_t read_cnt = 0;
+    char* temp= new char[maxlen+1];
 
-size_t TcpSocket::readline(string& retval, const char delimiter) throw (SocketException){
-    int read_cnt = 0;
-    int remaining=max_receive;
-    char* temp= new char[max_receive];
+    retval.assign("");
 
 again:
-    read_cnt = ::read(sockfd,temp,remaining);
-    remaining -= read_cnt;
+    read_cnt += ::read(sockfd,temp,maxreceive);
+    // cout << "     (read " << read_cnt << " chars)" << endl;
 
     if (read_cnt < 0){
         // No data read, interruption or maybe more serious error
@@ -157,23 +151,29 @@ again:
             retval.append(read_buffer.substr(0, newline_idx + 1));
             read_buffer = read_buffer.substr(newline_idx+1);
             delete []temp;
-            return max_receive-remaining-read_buffer.size();
+            return retval.size();
         } else {
             retval.append(read_buffer);
             read_buffer.assign("");
-            if (remaining == 0) {
+            if (read_cnt == maxlen) {
                 delete []temp;
+                // cout << "     (already read " << maxlen << " chars)" << endl;
                 return read_cnt;
             }
         }
         // newline not found and remaining not exhausted, try another read system call
+        // cout << "     (going for another " << maxreceive << " read)" << endl;
         goto again;
     }
 }
 
-void TcpSocket::setMaxReceive(const size_t howmany){max_receive=howmany;}
+void TcpSocket::setMaxReceive(size_t howmany) {
+    maxreceive=howmany;
+}
 
-size_t TcpSocket::getMaxReceive() const{return max_receive;}
+size_t TcpSocket::getMaxReceive() const {
+    return maxreceive;
+}
 
 // Non-member operator redefinition
 
@@ -184,13 +184,16 @@ const TcpSocket& operator<<(const TcpSocket& ts, const string& s) throw (Socket:
 
 bool operator>>(TcpSocket& ts, string& towriteto) throw (Socket::SocketException){
     string temp;
-    size_t written = ts.readline(temp);
-    towriteto.assign(temp);
-    return (written != string::npos);
+    size_t read = ts.readline(temp);
+    towriteto.append(temp);
+    // cout << "     (operator>> reports " << read << " read line is " << towriteto << ")" << endl;
+    return read != string::npos;
 }
 
 ostream& operator<<(ostream& os, const TcpSocket& sock){
     return os << "[TCP " << (const Socket&) sock << "]";
 }
+
+
 
 

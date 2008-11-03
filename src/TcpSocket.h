@@ -26,9 +26,8 @@ public:
     size_t write(const char* buff, const size_t howmany) throw (SocketException);
 
     // Data Transmission - string functions
-    size_t readline(std::string& result, const char delimiter = '\n') throw (SocketException);
+    size_t readline(std::string& result, const char delimiter = '\n', const size_t maxlen = DEFAULT_MAX_MSG) throw (SocketException);
     void writeline (const std::string) const throw (SocketException);
-
 
     void setMaxReceive(size_t howmany);
     size_t getMaxReceive() const;
@@ -43,10 +42,13 @@ private:
 
     // Data Transmission
     std::string read_buffer;
-    size_t max_receive;
+    size_t maxreceive;
 
     // Private constructor for new accept() sockets
     TcpSocket(int fd, SocketAddress& addr);
+
+    friend bool operator>>(TcpSocket& ts, std::string& towriteto) throw (Socket::SocketException);
+    
 };
 const TcpSocket& operator<<(const TcpSocket& ts, const std::string& s) throw (Socket::SocketException);
 bool operator>>(TcpSocket& ts, std::string& towriteto) throw (Socket::SocketException);
