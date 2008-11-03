@@ -75,13 +75,13 @@ unsigned int strtol_helper(char c, char* arg, unsigned int const* defaults) thro
 
     errno = 0;
     val = strtol(arg, &endptr, 0);
-    
+
     if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN))
         || (errno != 0 && val == 0)) {
         ss << "Error reading value of -" << c << ": " << strerror(errno) << ". Using default value";
         throw std::runtime_error(ss.str().c_str());
     }
-    
+
     if (endptr == arg) {
         ss << "Non numeric value of -" << c << " . Using default value";
         throw std::runtime_error(ss.str().c_str());
@@ -99,24 +99,24 @@ unsigned int strtol_helper(char c, char* arg, unsigned int const* defaults) thro
         ss << "Value for -" << c << " is too small: (minimum is " << defaults[0] << ")";
         throw std::runtime_error(ss.str().c_str());
     }
-        
+
     return (unsigned int)val;
 }
 
 sighandler_t signal_helper(int signo, sighandler_t func) throw (std::runtime_error)
 {
-    struct sigaction	act, oact;
+    struct sigaction    act, oact;
 
     act.sa_handler = func;
     sigemptyset(&act.sa_mask);
     act.sa_flags = 0;
     if (signo == SIGALRM) {
-#ifdef	SA_INTERRUPT
-        act.sa_flags |= SA_INTERRUPT;	/* SunOS 4.x */
+#ifdef  SA_INTERRUPT
+        act.sa_flags |= SA_INTERRUPT;   /* SunOS 4.x */
 #endif
     } else {
-#ifdef	SA_RESTART
-        act.sa_flags |= SA_RESTART;		/* SVR4, 44BSD */
+#ifdef  SA_RESTART
+        act.sa_flags |= SA_RESTART;             /* SVR4, 44BSD */
 #endif
     }
     if (sigaction(signo, &act, &oact) < 0)

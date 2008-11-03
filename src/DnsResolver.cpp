@@ -45,7 +45,7 @@ string& DnsResolver::resolve_to_string(const string& what) throw (ResolveExcepti
     static char buff[INET_ADDRSTRLEN];
     static string retval;
     stringstream ss;
-    
+
     list<struct in_addr> result(*resolve(what));
 
     for (list<struct in_addr>::iterator iter = result.begin(); iter != result.end() ; iter++){
@@ -171,7 +171,7 @@ list<struct in_addr>* DnsResolver::Cache::insert(string& alias, struct in_addr i
 
     map_t::iterator retval_iter;
     if ((retval_iter = local_map.find(alias)) != local_map.end()){
-        if (retval_iter->second.ips.size() < maxipaliases) 
+        if (retval_iter->second.ips.size() < maxipaliases)
             retval_iter->second.ips.push_back(ip);
     } else {
         MapValue value(ip, local_list.begin());
@@ -188,9 +188,9 @@ list<struct in_addr>* DnsResolver::Cache::insert(string& alias, struct in_addr i
         // now do the reverse: let the MapValue listiter element also point to its
         // place in the list
         temppair.first->second.listiter=local_list.begin();
-        
+
         retval_iter = temppair.first;
-        
+
         // if we exceeded the maximum allowed size, remove from both list and map
         // the least important element, the back of the list
         if (local_list.size() > maxsize){
@@ -241,7 +241,7 @@ const char * DnsResolver::ResolveException::what() const throw(){
     if (errno_number != 0){
         char buff[MAXERRNOMSG] = {0};
         s += ": ";
-        s.append(strerror_r(errno_number, buff, MAXERRNOMSG));
+        s.append(strerror(errno_number));
     }
 
     return s.c_str();
