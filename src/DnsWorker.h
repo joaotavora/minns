@@ -16,14 +16,12 @@
 class DnsWorker : public Thread::Runnable {
 public:
     virtual ~DnsWorker() = 0;
-    void rest();
+    static bool stop_flag;
 
-    // time_t getPunch();
-
-
+    std::string report() const;
+    
 private:
     void work();
-    // punch();
 
 protected:
     virtual void   setup() = 0;
@@ -36,16 +34,19 @@ protected:
 
     void*   main ();
 
-protected:
     DnsWorker(DnsResolver& _resolver, Thread::Mutex &_resolve_mutex, const size_t _maxmessage);
     int id;
 
 private:
-    bool stop_flag;
+    static void sig_alrm_handler(int signo);
+    
     DnsResolver& resolver;
     const size_t maxmessage;
     int retval;
     static int uniqueid;
+
+    unsigned int served;
+    unsigned int served_error;
 
     Thread::Mutex& resolve_mutex;
     

@@ -10,26 +10,43 @@
 
 using namespace std;
 
+
+
 DnsWorker::DnsWorker(DnsResolver& _resolver, Thread::Mutex &_resolve_mutex, const size_t _maxmessage)
     : resolver(_resolver), maxmessage(_maxmessage), resolve_mutex(_resolve_mutex){
-    stop_flag = false;
+
     retval = -1;
     id = uniqueid++;
+    served_error = 0;
+    served = 0;
 }
+
+// static elements related to thread shutdown
+bool DnsWorker::stop_flag = false;
+void DnsWorker::sig_alrm_handler(int signo){}
 
 DnsWorker::~DnsWorker(){}
 
-void DnsWorker::rest(){stop_flag = true;}
-
 void* DnsWorker::main(){
-    work();
-    retval = 0;
+    signal_helper(SIGALRM, DnsWorker::sig_alrm_handler);
+    try {
+        work();
+        retval = 0;
+    } catch (...) {
+        retval = -1;
+    }
     return &retval;
 }
 
 string DnsWorker::what() const{
     stringstream ss;
     ss << "["<< name() << ": id = \'" << id << "\' tid = x" << hex << Thread::self() << dec << "]";
+    return ss.str();
+}
+
+string DnsWorker::report() const{
+    stringstream ss;
+    ss << "["<< name() << ": id = " << id << " served = " << served << " served_error = " << served_error << "]";
     return ss.str();
 }
 
@@ -62,6 +79,7 @@ void DnsWorker::work(){
                         size_t towrite = response.serialize(temp, maxmessage);
                         size_t written = sendResponse(temp, towrite);
                         cout << this->what() << ": sent " << written << " byte long response: " << response << endl;
+                        served++;
                     } catch (DnsMessage::DnsException& e){
                         resolve_mutex.unlock();
                         throw e;
@@ -74,6 +92,7 @@ void DnsWorker::work(){
                     // hexdump(temp, towrite);
                     size_t written = sendResponse(temp, towrite);
                     cout << this->what() << ": sent " << written << " byte long error response: " << error_response << endl;
+                    served_error++;
                 }
             } catch (DnsMessage::SerializeException& e) {
                 cerr << "Warning: could not serialize error respose: " << e.what() << endl;
@@ -148,13 +167,13 @@ void TcpWorker::setup() throw (Socket::SocketException){
 size_t TcpWorker::readQuery(char* buff, const size_t maxmessage) throw(Socket::SocketException){
     char temp[2]={0};
     // cerr << "Worker in thread  " << hex << Thread::self() << "starting read of new length information)" << dec << endl;
-    if (connectedSocket->read(temp,2) != 2)
+    if (connectedSocket->read(temp, 2, &stop_flag) != 2)
         throw Socket::SocketException("No length information for new message (probably EOF)");
     uint16_t messagesize = ntohs(*(uint16_t*)&temp[0]);
     // hexdump(temp,2);
     if (messagesize < maxmessage){
         // cerr << "      (Advertised size was" << messagesize << ")" << endl;
-        return connectedSocket->read(buff, maxmessage);
+        return connectedSocket->read(buff, maxmessage, &stop_flag);
     } else {
         stringstream ss;
         ss << "Advertised size " << messagesize << " greater than max allowed size " << maxmessage;
@@ -174,10 +193,10 @@ size_t TcpWorker::sendResponse(const char* buff, const size_t buflen) throw(Sock
     char temp[2]={0};
     *((uint16_t*)&temp[0]) = htons(buflen);
     
-    if (connectedSocket->write(temp, 2) != 2)
+    if (connectedSocket->write(temp, 2, &stop_flag) != 2)
         throw Socket::SocketException("Could not write length information for response");
     
-    return connectedSocket->write(buff, buflen);
+    return connectedSocket->write(buff, buflen, &stop_flag);
 }
 
 string TcpWorker::name() const {return string("TcpWorker");}

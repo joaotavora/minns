@@ -45,7 +45,7 @@ void TcpSocket::connect(const string& host, const int port) throw (SocketExcepti
 
 void TcpSocket::listen(const int max_connections) throw (SocketException){
     if (::listen (sockfd, max_connections) != 0)
-        throw SocketException(errno, "Cound not accept()");
+        throw SocketException(errno, "Cound not listen()");
 }
 
 TcpSocket* TcpSocket::accept() const throw (SocketException){
@@ -62,67 +62,53 @@ TcpSocket* TcpSocket::accept() const throw (SocketException){
 }
 
 // Data Transmission - raw byte functions
-size_t TcpSocket::read(char* buff, const size_t howmany) throw (SocketException){
+size_t TcpSocket::read(char* buff, const size_t howmany, bool* stopflag) const throw (SocketException){
     size_t read_cnt = 0;
 
 again:
     read_cnt = ::read(sockfd,buff,howmany);
     if (read_cnt < 0){
         // No data read, interruption or maybe more serious error
-        if (errno == EINTR)
+        if ((errno == EINTR) and ((stopflag == NULL) or (*stopflag==false))){
+            cerr << "        (read caught EINTR)" << endl;
             goto again;
-        else {
+        } else {
             throw new SocketException(errno, "read() error");
         }
     }
     return read_cnt;
 }
 
-size_t TcpSocket::write(const char* buff, const size_t howmany) throw (SocketException){
+size_t TcpSocket::write(const char* buff, const size_t howmany, bool* stopflag) const throw (SocketException){
     size_t write_cnt;
 again:
     if ((write_cnt = ::write(sockfd, buff, howmany)) < 0){
-        if (errno == EINTR){
+        if ((errno == EINTR) and ((stopflag == NULL) or (*stopflag==false))){
+            cerr << "        (write caught EINTR)" << endl;
             goto again;
         } else throw SocketException(errno, "write() error");
     }
     return write_cnt;
 }
 
-void TcpSocket::writeline(const string s) const throw (SocketException){
-    size_t remaining=s.size();
-    size_t write_cnt;
-    const char* buff = s.c_str();
-
-again:
-    if ((write_cnt = ::write(sockfd, buff, remaining)) != remaining){
-        if (errno == EINTR){
-            remaining -= write_cnt;
-            goto again;
-        } else throw SocketException(errno, "write() error");
-    }
+size_t TcpSocket::writeline(const string s, bool* stopflag) const throw (SocketException){
+    return write(s.c_str(), s.size(), stopflag);
 }
 
-
-size_t TcpSocket::readline(string& retval, const char delimiter, const size_t maxlen) throw (SocketException){
+size_t TcpSocket::readline(string& retval, const char delimiter, const size_t maxlen, bool* stopflag) throw (SocketException){
     size_t read_cnt = 0;
     char* temp= new char[maxlen+1];
 
     retval.assign("");
 
 again:
-    read_cnt += ::read(sockfd,temp,maxreceive);
-    // cout << "     (read " << read_cnt << " chars)" << endl;
-
-    if (read_cnt < 0){
-        // No data read, interruption or maybe more serious error
-        if (errno == EINTR)
-            goto again;
-        else {
-            delete []temp;
-            throw new SocketException(errno, "read() error");
-        }
-    } else if (read_cnt == 0) {
+    try {
+        read_cnt += read(temp,maxreceive, stopflag);
+    } catch (SocketException& e) {
+        delete []temp;
+        throw e;
+    }
+    if (read_cnt == 0) {
         // EOF or no more characters remaining
         // append whatever is in read_buffer to retval, return npos
         retval.append(read_buffer);

@@ -7,6 +7,8 @@ BINDIR  ?= $(CURDIR)
 
 MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
 
+TESTOPTS = -f simplehosts.txt -t 43434 -u 43434 -p 3
+
 # Specific to this makefile
 
 all : minns
@@ -17,25 +19,11 @@ minns: minns.o DnsServer.o DnsWorker.o DnsMessage.o UdpSocket.o TcpSocket.o Sock
 clean:
 	rm -rf *.o minns echo *.dSYM
 
-simplememtest: minns
-	(dig @localhost -p 43434 bla bli)& \
-valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns
-
-udptest: minns
-	(dig @localhost -p 43434 bla +short ble +short)& ./minns
-
-tcptest: minns
-	(sleep 1;dig @localhost -p 43434 bla +short +tcp ble +short +tcp)& ./minns
-
-tcpmemtest: minns
-	(sleep 1;dig @localhost -p 43434 bla +short +tcp ble +short +tcp)&\
-valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns
-
-optionstest: minns
-	./minns -f ../test/module/simplehosts.txt -c 10asd -x -m 2 -i 1 -t -1 -u 43434 -d 1 -p 1
+test: minns
+	(dig @localhost -p 43434 bla +short ble +short)& ./minns $(TESTOPTS) 
 
 memtest: minns
-	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns -f simplehosts.txt -t 43434 -u 43434 -p 0
+	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns $(TESTOPTS)
 
 # Dependencies
 DnsMessage.o: DnsMessage.cpp DnsMessage.h DnsResolver.h Thread.h

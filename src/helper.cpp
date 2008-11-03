@@ -103,4 +103,27 @@ unsigned int strtol_helper(char c, char* arg, unsigned int const* defaults) thro
     return (unsigned int)val;
 }
 
+sighandler_t signal_helper(int signo, sighandler_t func) throw (std::runtime_error)
+{
+    struct sigaction	act, oact;
+
+    act.sa_handler = func;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    if (signo == SIGALRM) {
+#ifdef	SA_INTERRUPT
+        act.sa_flags |= SA_INTERRUPT;	/* SunOS 4.x */
+#endif
+    } else {
+#ifdef	SA_RESTART
+        act.sa_flags |= SA_RESTART;		/* SVR4, 44BSD */
+#endif
+    }
+    if (sigaction(signo, &act, &oact) < 0)
+        throw std::runtime_error("Error installing signal handler");
+    return(oact.sa_handler);
+}
+
+
+
 

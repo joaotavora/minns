@@ -5,7 +5,7 @@
 #include <string>
 #include <list>
 #include <stdexcept>
-#include <memory> // auto_ptr
+#include <semaphore.h>
 
 // Project includes
 #include "Socket.h"
@@ -24,10 +24,10 @@ public:
         const unsigned int tcpworkers,
         const unsigned int tcptimeout) throw (std::exception);
     ~DnsServer();
+    
+    void start() throw (std::runtime_error);
 
-    void start();
-    void stop();
-
+    // Public constants 
     static const unsigned int MAX_FILE_NAME = 512;
     static const char DEFAULT_HOSTS_FILE[MAX_FILE_NAME];
 
@@ -39,6 +39,13 @@ public:
     static const unsigned int DEFAULT_TCP_TIMEOUT[3];
 
 private:
+
+    // Static 
+    static void sig_alarm_handler(int signo);
+    static void sig_term_handler(int signo);
+    static sem_t stop_sem;
+
+    // Member attributes
     std::list<DnsWorker*> workers;
 
     bool stopFlag;
