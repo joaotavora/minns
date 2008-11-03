@@ -1,7 +1,11 @@
+// lib includes
+#include <string.h> // memset
+
 // stdl includes
 #include <sstream>
 
 // Project includes
+#include "helper.h"
 #include "DnsWorker.h"
 
 using namespace std;
@@ -27,8 +31,12 @@ void DnsWorker::work(){
     char* const temp = new char[maxmessage];
 
     cout << "DnsWorker " << this->what() << " starting..." << endl;
+
+
+again:
+    setup(); // tcp performs accept here, udp does nothing
     // while (!stop_flag){
-    for (int i=0; i<2 ; i++){
+    for (int i=0; i<4 ; i++){
         try {
             try {
                 size_t read = readQuery(temp, maxmessage);
@@ -59,6 +67,8 @@ void DnsWorker::work(){
             cerr << "Warning: could not serialize error respose: " << e.what() << endl;
         } catch (Socket::SocketException& e) {
             cerr << "Warning: socket exception: " << e.what() << ". Continuing..." << endl;
+            teardown();
+            goto again;
         }
     }
     delete []temp;
@@ -72,8 +82,12 @@ UdpWorker::UdpWorker(DnsResolver& resolver, const UdpSocket& s, const size_t max
     : DnsWorker(resolver, maxmessage), socket(s) {}
 
 void UdpWorker::setup(){
-    cerr << "UdpWorker starting up..." << endl;
+    cerr << "UdpWorker " << id << " setting up..." << endl;
 } // Udp needs no special setup
+
+void UdpWorker::teardown(){
+    cerr << "UdpWorker " << id << " tearing down connection..." << endl;
+} // Udp needs no special teardown
 
 size_t UdpWorker::readQuery(char* buff, const size_t maxmessage) throw (Socket::SocketException){
     return socket.recvfrom(buff, clientAddress, maxmessage);
@@ -104,7 +118,7 @@ TcpWorker::~TcpWorker() throw () {
 }
 
 void TcpWorker::setup() throw (Socket::SocketException){
-    cerr << "TcpWorker " << id << " starting up..." << endl;
+    cerr << "TcpWorker " << id << " setting up..." << endl;
     acceptMutex.lock();
     connectedSocket = serverSocket.accept();
     cerr << "TcpWorker " << id << " accepted connection..." << endl;
@@ -112,11 +126,36 @@ void TcpWorker::setup() throw (Socket::SocketException){
 } // Tcp needs no special setup
 
 size_t TcpWorker::readQuery(char* buff, const size_t maxmessage) throw(Socket::SocketException){
-    return connectedSocket->read(buff, maxmessage);
+    char temp[2]={0};
+    cerr << "      (Starting read of new length information)" << endl;
+    if (connectedSocket->read(temp,2) != 2)
+        throw Socket::SocketException("No length information for new message (probably EOF)");
+    size_t messagesize = (*(uint16_t*)(&buff[0]));
+    if (messagesize < maxmessage){
+        cerr << "      (Advertised size was" << messagesize << ")" << endl;
+        return connectedSocket->read(buff, maxmessage);
+    } else {
+        stringstream ss;
+        ss << "Advertised size " << messagesize << " greater than max allowed size " << maxmessage;
+        throw Socket::SocketException(ss.str().c_str());
+    }
+    
 }
 
-size_t TcpWorker::sendResponse(const char* buff, const size_t maxmessage) throw(Socket::SocketException){
-    return connectedSocket->write(buff, maxmessage);
+void TcpWorker::teardown() throw (Socket::SocketException){
+    cerr << "TcpWorker " << id << " tearing down connection..." << endl;
+    connectedSocket->close();
+    delete connectedSocket;
+}
+
+size_t TcpWorker::sendResponse(const char* buff, const size_t buflen) throw(Socket::SocketException){
+    char temp[2]={0};
+    *((uint16_t*)&temp[0]) = htons(buflen);
+    
+    if (connectedSocket->write(temp, 2) != 2)
+        throw Socket::SocketException("Could not write length information for response");
+    
+    return connectedSocket->write(buff, buflen);
 }
 
 string TcpWorker::what() const{

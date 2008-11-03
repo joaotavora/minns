@@ -11,35 +11,43 @@ MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
 
 all : minns
 
-minns: DnsServer.o DnsWorker.o DnsMessage.o UdpSocket.o TcpSocket.o Socket.o DnsResolver.o Thread.o
+minns: DnsServer.o DnsWorker.o DnsMessage.o UdpSocket.o TcpSocket.o Socket.o DnsResolver.o Thread.o helper.o
 	$(MAKEBIN)
 
 echo: EchoServer.o TcpSocket.o Socket.o Thread.o
 	$(MAKEBIN)
 
-clean: 
+clean:
 	rm -rf *.o minns echo *.dSYM
 
 simplememtest: minns
 	(dig @localhost -p 43434 bla bli)& \
 valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns
 
-test: minns
+udptest: minns
 	(dig @localhost -p 43434 bla +short ble +short)& ./minns
 
+tcptest: minns
+	(sleep 1;dig @localhost -p 43434 bla +short +tcp ble +short +tcp)& ./minns
+
+tcpmemtest: minns
+	(dig @localhost -p 43434 bla +short +tcp ble +short +tcp)& \
+valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns
+
 # Dependencies
-DnsMessage.o: DnsMessage.cpp DnsMessage.h DnsResolver.h
+DnsMessage.o: DnsMessage.cpp DnsMessage.h DnsResolver.h Thread.h
 DnsResolver.o: DnsResolver.cpp DnsResolver.h
 DnsServer.o: DnsServer.cpp DnsServer.h Socket.h UdpSocket.h DnsMessage.h \
-  DnsResolver.h DnsWorker.h Thread.h TcpSocket.h
-DnsWorker.o: DnsWorker.cpp DnsWorker.h Thread.h UdpSocket.h Socket.h \
-  TcpSocket.h DnsResolver.h DnsMessage.h
+  DnsResolver.h Thread.h DnsWorker.h TcpSocket.h
+DnsWorker.o: DnsWorker.cpp helper.h DnsWorker.h Thread.h UdpSocket.h \
+  Socket.h TcpSocket.h DnsResolver.h DnsMessage.h
 EchoHandler.o: EchoHandler.cpp EchoHandler.h
 EchoServer.o: EchoServer.cpp EchoServer.h Socket.h TcpSocket.h Thread.h
 Socket.o: Socket.cpp Socket.h
 TcpSocket.o: TcpSocket.cpp TcpSocket.h Socket.h
 Thread.o: Thread.cpp Thread.h
 UdpSocket.o: UdpSocket.cpp UdpSocket.h Socket.h
+
 
 
 

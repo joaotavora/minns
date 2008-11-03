@@ -85,7 +85,7 @@ void initialize(){
 int main(){
     try {
         DnsResolver r("simplehosts.txt", DnsResolver::DEFAULT_CACHE_SIZE, DnsResolver::DEFAULT_MAX_ALIASES);
-        DnsServer a(r, 43434, 53535, 1, 0);
+        DnsServer a(r, 43434, 43434, 0, 1);
         a.start();
         return 0;
     } catch (std::exception& e) {

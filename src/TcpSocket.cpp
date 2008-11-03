@@ -90,15 +90,13 @@ again:
 
 size_t TcpSocket::write(const char* buff, const size_t howmany) throw (SocketException){
     size_t write_cnt;
-    size_t remaining=howmany;
 again:
-    if ((write_cnt = ::write(sockfd, buff, remaining)) != remaining){
+    if ((write_cnt = ::write(sockfd, buff, howmany)) < 0){
         if (errno == EINTR){
-            remaining -= write_cnt;
             goto again;
         } else throw SocketException(errno, "write() error");
     }
-    return howmany - remaining;
+    return write_cnt;
 }
 
 void TcpSocket::writeline(const string s) const throw (SocketException){

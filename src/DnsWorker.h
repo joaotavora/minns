@@ -28,6 +28,7 @@ private:
 
 protected:
     virtual void   setup() = 0;
+    virtual void   teardown() = 0;
     virtual size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
     virtual size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException)= 0;
     void*   main ();
@@ -51,6 +52,7 @@ public:
         throw (Socket::SocketException);
 
     void   setup();
+    void   teardown();
     size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException);
     size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException);
     std::string what() const;
@@ -69,6 +71,7 @@ public:
     ~TcpWorker() throw ();
 
     void setup() throw (Socket::SocketException);
+    void   teardown() throw (Socket::SocketException);
     size_t readQuery(char* buff, size_t maxmessage) throw(Socket::SocketException);
     size_t sendResponse(const char* buff, size_t maxmessage) throw(Socket::SocketException); /*  */
     std::string what() const;
