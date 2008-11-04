@@ -121,7 +121,8 @@ void DnsServer::start() throw (std::runtime_error){
     }
 
     ctrace << "all threads joined" << endl;
-    
+
+    ctrace << "worker status:" << endl << endl;
     for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++){
         cout << "\t\t" << (*iter)->report() << endl;
     }

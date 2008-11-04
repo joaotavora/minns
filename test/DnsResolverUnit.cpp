@@ -17,7 +17,7 @@ bool tryToResolveTest(int cachesize, int maxaliases, int maxinverseliases, const
     try {
         cout << "Starting tryToResolveTest() for " << what << " and (" <<
         cachesize << ", " << maxaliases << ", " << maxinverseliases << ")" << endl;
-        DnsResolver resolver("../module/simplehosts.txt", cachesize, maxaliases, maxinverseliases);
+        DnsResolver resolver("../test/simplehosts.txt", cachesize, maxaliases, maxinverseliases);
         stringstream ss(what);
         string tosearch;
         while (ss >> tosearch){
