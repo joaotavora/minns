@@ -7,8 +7,14 @@ BINDIR  ?= $(CURDIR)
 
 MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
 
+#three UDP workers, cachesize 2 no TCP workers, max inverse aliases 200
+TESTOPTS = -f simplehosts.txt -c 2 -t 43434 -u 43434 -p 0 -d 3 -i 200
+
+#one UDP worker, three TCP workers, cachesize 5
 TESTOPTS = -f simplehosts.txt -c 2 -t 43434 -u 43434 -p 3
-TESTOPTS = -f simplehosts.txt -c 2 -t 43434 -u 43434 -p 3 -i 200
+
+#one UDP worker, three TCP workers, cachesize 5, no file stat
+TESTOPTS = -f simplehosts.txt -c 2 -t 43434 -u 43434 -p 3 -n
 
 # Specific to this makefile
 
@@ -19,6 +25,9 @@ minns: minns.o DnsServer.o DnsWorker.o DnsMessage.o UdpSocket.o TcpSocket.o Sock
 
 clean:
 	rm -rf *.o minns echo *.dSYM
+
+test: minns
+	./minns $(TESTOPTS)
 
 digtest: minns
 	(dig @localhost -p 43434 bla +short ble +short)& ./minns $(TESTOPTS) 
