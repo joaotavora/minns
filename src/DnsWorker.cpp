@@ -11,8 +11,6 @@
 
 using namespace std;
 
-
-
 DnsWorker::DnsWorker(DnsResolver& _resolver, Thread::Mutex &_resolve_mutex, const size_t _maxmessage)
     : resolver(_resolver), maxmessage(_maxmessage), resolve_mutex(_resolve_mutex){
 

@@ -55,15 +55,13 @@ void UdpSocket::sendto(const std::string& msg, const SocketAddress& to) const th
         throw SocketException(TRACELINE("not enough bytes sent"));
 }
 
-std::string& UdpSocket::recvfrom(SocketAddress &from) const throw (SocketException){
+std::string UdpSocket::recvfrom(SocketAddress &from) const throw (SocketException){
     char buff[DEFAULT_MAX_MSG];
 
     size_t read = recvfrom(buff,from, DEFAULT_MAX_MSG);
     if (read < DEFAULT_MAX_MSG) buff[read]='\0'; // safe null terminate
 
-    std::string& retval = *new std::string(buff);
-
-    return retval;
+    return std::string(buff);
 }
 
 

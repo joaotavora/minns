@@ -18,7 +18,7 @@ public:
 
     // string send and receive
     void sendto(const std::string& msg, const SocketAddress& to) const throw (SocketException);
-    std::string& recvfrom(SocketAddress &from) const throw (SocketException);
+    std::string recvfrom(SocketAddress &from) const throw (SocketException);
 
     static const unsigned int DEFAULT_MAX_MSG=512;
 private:
