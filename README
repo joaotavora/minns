@@ -1,5 +1,20 @@
 minns - minimal name server
 
+0. CONTENTS
+
+   1. Compiling And Running
+   2. Features
+   3. Limitations
+   4. Architecture
+    
+      4.1 Overview
+      4.2 Prethreaded DNS server
+      4.3 DnsResolver
+      4.4 TcpSocket, UdpSocket and Thread mini-libraries
+      4.5 File structure overview
+    
+   5. Thanks
+
 1. COMPILING AND RUNNING
 
    To compile, unpack the tarball and call make:
@@ -33,8 +48,7 @@ minns - minimal name server
    e) uses no external libraries apart from libc and stdl
 
    d) portable at least to MacOSX 10.5 Leopard (Darwin/BSD) 
-
-  
+ 
 3. LIMITATIONS
 
    e) only supports IPV4 queries
@@ -51,6 +65,8 @@ minns - minimal name server
 
 4. ARCHITECTURE
 
+4.1 Overview
+
    minns can be seen as composed of three parts:
 
    a) three mini-libraries (TcpSocket, UdpSocket, Thread), independent
@@ -64,29 +80,246 @@ minns - minimal name server
       parts, and is composed of base classes DnsServer, DnsWorker and
       DnsMessage.
 
-4.1 File structure overview
+4.2 Prethreaded DNS server (DnsServer.cpp, DnsWorker.cpp, DnsMessage.cpp)
 
+    a) DnsServer (DnsServer.cpp)
 
+       A single instance of class DnsServer is spawns a number of
+       DnsWorker threads. DnsWorker is an abstract base class to both the
+       UdpWorker and TcpWorker concrete classes, which handle UDP and TCP
+       requests, respectively. It owns the following objects, initialized
+       in the constructor.
 
-4.2 Prethreaded DNS server
+       1. A single UdpSocket object for datagram communication, shared
+          by all UdpWorker's.
+        
+       2. A single TcpSocket object (server socket) shared by all
+          TcpWorkers's. This socket is put in the LISTEN state.
+        
+       3. A variable number of UdpWorkers and TcpWorkers. On
+          construction, these are given an instance of the DnsResolver
+          class.
+        
+       4. One mutex to protect access to the DnsResolver class and
+          another to protect access to the server socket.
+        
+       The entry point DnsServer::start() proceeds as follows:
+        
+       1. Install signal handlers for the SIGTERM and SIGINT signals;
+        
+       2. Creates worker threads using the Thread(Runnable&)
+          constructor (DnsWorker objects are Thread::Runnable's);
+        
+       3. Runs all worker threads;
+        
+       4. Waits on an exit semaphore, which is signalled when SIGTERM
+          or SIGINT signals are received by the process;
+        
+       5. Signals all workers to stop;
+        
+       6. Closes both UDP and TCP sockets;
+        
+       7. Signals possibly blocked threads with the SIGALRM signal
+          (this causes any system calls to be interrupted);
+        
+       8. Waits for all threds to finish (calling pthread_join());
+        
+       9. Reports on worker status on exit;
 
-4.3 DnsResolver
+    
+    b) DnsWorker, UdpWorker, TcpWorker (DnsWorker.cpp)
+
+       Each instance of the DnsWorker class runs in its own thread. This
+       abstract class tries to abstract as much similarity as possible
+       between the UDP and TCP cases.
+        
+       The main entry point is DnsWorker::work(). It uses the following
+       pure virtual functions:
+        
+       virtual void setup() = 0;
+        
+           This method is called before trying to receive any queries
+           and after each teardown() operation.
+           
+           TcpWorker's implementation of this method calls accept(),
+           after locking a mutex, thereby producting another TcpSocket
+           object used to connect to the client.
+        
+        	UdpWorker's implementation does nothing.
+        
+       virtual void teardown() = 0;
+        
+           This method is called when an exceptional event happens
+           after setup in one of the sockets.
+        
+           TcpWorker's implementation of this method closes the client
+           socket and deletes the TcpSocket object.
+        
+           UdpWorker's implementation does nothing.
+        
+       virtual size_t readQuery(char * buff, char * bufflen) = 0;
+        
+           This method is called after setup() and produce a buffer of
+           data for constructing a DnsMessage object.
+        
+           UdpWorker's implementation of this method simply reads a
+           datagram from the UdpSocket object.
+        
+           TcpWorker's implementation reads 2 bytes containing the
+           length of the message and then reads the rest of the
+           message.
+        
+       virtual size_t sendResponse(char* buff, char *bufflen) = 0;
+        
+           This method is called when DnsWorker needs to send a
+           serialized response (even if an error);
+        
+           Again, TcpWorker's implementation of this method only
+           differs from UdpWorker's in the fact that two extra bytes
+           are sent representing the message length.
+
+    
+    c) DnsMessage, DnsResponse, DnsErrorResponse (DnsMessage.cpp)
+
+       An instance of the DnsResponse class is built using a
+       DnsResolver object. This object is used to resolve the actual
+       name being queried, but only after locking a mutex.
+
+       Apart from that, these classes deal mostly with parsing and
+       serialization of messages. They could have been implemented
+       using bitfields which would be more efficient but maybe less
+       portable, so I haven't attempted it yet.
+
+       Exceptions are also thrown from some of the operations of these
+       classes. They are handled by the DnsWorker class.
+
+4.3 DnsResolver (DnsResolver.cpp)
+
+    This class is responsible for reading the hosts file and is always
+    delegated the resolution of a domain name. A size-limited cache is
+    used to speed up resolutions.
+
+    The method "addr_set_t* resolve (const string& name)" contains the
+    main algorithm and proceeds as follows:
+
+    1. If the file has been modified since the last time it was read,
+       clear the cache. (this can be turned off with the -n option for
+       efficiency)
+
+    2. Lookup the entry in the cache, if it is there return the set of
+       corresponding addresses is returned.
+
+    3. Otherwise, start searching the file from the beginning. Parse a
+       complete line. For each name entry in a valid line do:
+
+       3.1 if the name matches the search insert the <name, ip>
+           mapping it into the cache.
+
+       3.2 else, if the cache is not full, insert the into the cache
+           anyway,
+
+       3.3 else dont do anything.
+
+    4. If a result has been found, return it, else go back to 3. and
+       parse another line.
+     
+    The cache itself is implemented by class DnsResolver::Cache and is
+    composed of the following data structures:
+
+    a) A map (std::map), mapping names to sets of addresses; 
+
+    b) A list (std::list) instance, keeping track of the most recently
+       searches;
+
+    and the following operations:
+
+    addr_set_t* lookup(const string& name);
+
+         Returns a matching set of ip addresses if these are found in
+         a) or NULL otherwise.
+
+         If a match is found in map a), the entry found also contains
+         a hidden pointer to the position of the match in the list b).
+         That entry in the list is moved up to the beginning of the
+         list, and the pointer in map a)'s matching entry is updated.
+
+         Implementation-wise, iterators are used instead of raw
+         pointers.
+
+    addr_set_t* insert(const string& name, struct in_addr ip);
+
+         Inserts the <name, ip> mapping into the cache.
+
+	 If an entry for 'name' is already ins map a) , add the ip the
+	 set of ips associciated with 'name'.
+
+         Otherwise, create a new entry in map a). Also, insert into
+         the beginning of the list b) a a pointer to this
+         entry. Finally, make newly create entry point to the list as
+         well.
+
+	 If after these steps the cache has exceeded its maximum size,
+	 remove the last element from the list b) and the
+	 corresponding map entry from map a).
 
 4.4 TcpSocket, UdpSocket and Thread mini-libraries
 
+    These libraries wrap POSIX system calls in nice C++ classes. They
+    are not intended to be fully fleged API implementations, other
+    external libraries already do that. But these do the job nicely. A
+    handfull of (quickly written and possibly buggy) unit tests is
+    available in ./test.
 
+4.5 File structure overview
 
-   
-      
-   
+$ /usr/bin/tree -Ch
+.
+|-- [ 283]  Makefile
+|-- [ 141]  Makefile.inc
+|-- [2.0K]  README
+|-- [   2]  bin
+|-- [   3]  doc
+|   `-- [   4]  Makefile
+|-- [  24]  src 
+|   |-- [ 12K]  DnsMessage.cpp
+|   |-- [5.4K]  DnsMessage.h
+|   |-- [8.9K]  DnsResolver.cpp
+|   |-- [3.5K]  DnsResolver.h
+|   |-- [4.4K]  DnsServer.cpp
+|   |-- [1.4K]  DnsServer.h
+|   |-- [8.3K]  DnsWorker.cpp
+|   |-- [2.6K]  DnsWorker.h
+|   |-- [1.8K]  Makefile
+|   |-- [3.5K]  Socket.cpp
+|   |-- [1.8K]  Socket.h
+|   |-- [5.3K]  TcpSocket.cpp
+|   |-- [1.9K]  TcpSocket.h
+|   |-- [4.0K]  Thread.cpp
+|   |-- [1.9K]  Thread.h
+|   |-- [1.9K]  UdpSocket.cpp
+|   |-- [ 801]  UdpSocket.h
+|   |-- [3.4K]  helper.cpp
+|   |-- [ 386]  helper.h
+|   |-- [6.5K]  minns.cpp
+|   |-- [  23]  simplehosts.txt -> ../test/simplehosts.txt
+|   `-- [ 540]  trace.h
+`-- [   8]  test
+    |-- [1.4K]  DnsResolverUnit.cpp
+    |-- [1.5K]  Makefile
+    |-- [7.7K]  TcpSocketUnit.cpp
+    |-- [2.4K]  ThreadUnit.cpp
+    |-- [5.5K]  UdpSocketUnit.cpp
+    `-- [1.2K]  simplehosts.txt
 
+5. THANKS
 
+   To the late W. Richard Stevens and the greatest book on Unix
+   Networking ever. This is the bible.
 
-   
+   To Bruce Eckel and his fantastic (although sometimes annoying) way
+   of explaining C++ in the book "Thinking in C++"
 
-   
-   
+   To google, or better, to the people who kindly answer small
+   questions that are incredibly valuable.
 
-
-
-
+   To my girlfriend, for having let me work over the weekend :-)
