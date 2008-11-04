@@ -1,0 +1,92 @@
+minns - minimal name server
+
+1. COMPILING AND RUNNING
+
+   To compile, unpack the tarball and call make:
+
+   $ tar xvf minns.tar.gz
+   $ make
+
+   This makes all the binaries (main executable and some unit tests)
+   in ./bin. You should run minns for the first time by typing
+
+   $ bin/minns -h
+
+   , which gives you a list of command line options. You'll probably
+   want to try minns on non-reserved UDP and TCP ports using the -t
+   and -u options.
+
+2. FEATURES
+
+   The main features of minns are:
+
+   a) prethreaded DNS served designed with robustness,
+      simplicity, efficiency and capacity in mind. ;-)
+
+   b) support of QUERY_A type DNS queries.
+
+   c) reads entries of a file similar to /etc/hosts. caches frequently
+      accessed entries for faster response.
+
+   d) supports queries in both UDP and TCP transport
+
+   e) uses no external libraries apart from libc and stdl
+
+   d) portable at least to MacOSX 10.5 Leopard (Darwin/BSD) 
+
+  
+3. LIMITATIONS
+
+   e) only supports IPV4 queries
+
+   f) almost POSIX compliant, but not quite (SO_RECVTIMEO is not
+      standard)
+
+   g) the truncation (TC) bit in DNS UDP replies is not
+      implemented. The server responds with a "Server failure"
+      condition instead. However, a client can try a TCP request and
+      will probably get a nicer answer. 
+
+   h) the server cannot run as a daemon yet.
+
+4. ARCHITECTURE
+
+   minns can be seen as composed of three parts:
+
+   a) three mini-libraries (TcpSocket, UdpSocket, Thread), independent
+      between themselves, that wrap useful system calls and provide
+      error handling through exceptions.
+
+   b) a DnsResolver base class, responsible for dealing with the hosts
+      file and managing the cache, also independent.
+
+   c) the prethreaded DNS Server, that depends on the two preceding
+      parts, and is composed of base classes DnsServer, DnsWorker and
+      DnsMessage.
+
+4.1 File structure overview
+
+
+
+4.2 Prethreaded DNS server
+
+4.3 DnsResolver
+
+4.4 TcpSocket, UdpSocket and Thread mini-libraries
+
+
+
+   
+      
+   
+
+
+
+   
+
+   
+   
+
+
+
+

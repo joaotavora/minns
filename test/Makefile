@@ -1,5 +1,5 @@
 # Try to figure out undefined values
-BASE ?= $(CURDIR)/../..
+BASE ?= $(CURDIR)/..
 
 SRCDIR  ?= $(BASE)/src
 
@@ -31,7 +31,7 @@ threadUnit: $(SRCDIR)/Thread.o ThreadUnit.o
 	$(MAKEBIN)
 
 dnsResolverUnit: $(SRCDIR)/DnsResolver.o DnsResolverUnit.o
-	$(MAKEBIN) BASE=$(BASE)
+	$(MAKEBIN)
 
 clean:
 	rm -rf *.o *.dSYM tcpSocketUnit udpSocketUnit threadUnit dnsResolverUnit

@@ -8,6 +8,7 @@ BINDIR  ?= $(CURDIR)
 MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
 
 TESTOPTS = -f simplehosts.txt -c 2 -t 43434 -u 43434 -p 3
+TESTOPTS = -f simplehosts.txt -c 2 -t 43434 -u 43434 -p 3 -i 200
 
 # Specific to this makefile
 

@@ -152,7 +152,7 @@ bool sendReceiveStringTest(){
         cout << "  Server binding SocketAddress\n";
         serverSocket.bind_any(LOCALPORT);
         cout << "  Server recvfrom()\n";
-        string& received = serverSocket.recvfrom(fromClient);
+        string received = serverSocket.recvfrom(fromClient);
         cout << "  Read: " << received << endl;
         cout << "  Addr: " << fromClient << endl;
         if (!(message.compare(received) == 0))

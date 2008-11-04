@@ -159,7 +159,7 @@ public:
 
     // constants
     const static char FORMAT_ERROR = 1;
-    const static char SERVER_FAILURE = 3;
+    const static char SERVER_FAILURE = 2;
     const static char NAME_ERROR = 3;
     const static char NOT_IMPLEMENTED = 4;
 };
