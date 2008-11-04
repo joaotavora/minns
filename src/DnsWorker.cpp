@@ -19,11 +19,11 @@ DnsWorker::DnsWorker(DnsResolver& _resolver, Thread::Mutex &_resolve_mutex, cons
     id = uniqueid++;
     served_error = 0;
     served = 0;
+    stop_flag = false;
 }
 
-// static elements related to thread shutdown
-bool DnsWorker::stop_flag = false;
-void DnsWorker::sig_alrm_handler(int signo){}
+// signal handler related to thread shutdown
+void DnsWorker::sig_alrm_handler(int signo){} // does nothing, but should interrupt all ongoing system calls
 
 DnsWorker::~DnsWorker(){}
 
@@ -37,6 +37,8 @@ void* DnsWorker::main(){
     }
     return &retval;
 }
+
+void DnsWorker::stop(){ stop_flag = true; }
 
 string DnsWorker::what() const{
     stringstream ss;
@@ -87,7 +89,6 @@ void DnsWorker::work(){
                 } catch (DnsMessage::DnsException& e){
                     cerr << "Warning: message exception: " << e.what() << endl;
                     DnsErrorResponse error_response(e);
-                    cerr << "Responding with " << error_response << endl;
                     size_t towrite = error_response.serialize(temp, maxmessage);
                     // hexdump(temp, towrite);
                     size_t written = sendResponse(temp, towrite);

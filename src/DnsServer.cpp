@@ -21,7 +21,7 @@
 using namespace std;
 
 // statics
-sem_t DnsServer::stop_sem;
+Thread::Semaphore DnsServer::stop_sem;
 
 // init of static consts
 const char DnsServer::DEFAULT_HOSTS_FILE[MAX_FILE_NAME] = "/etc/hosts";
@@ -73,10 +73,6 @@ void DnsServer::start() throw (std::runtime_error){
     signal_helper(SIGTERM, DnsServer::sig_term_handler);
     signal_helper(SIGINT, DnsServer::sig_term_handler);
 
-    cerr << "DnsServer initing stop_sem..." << endl;
-    if (sem_init(&DnsServer::stop_sem, 0, 0) == -1)
-        throw std::runtime_error("Could not sem_init()");
-
     list<Thread> threads;
     cerr << "DnsServer creating worker threads..." << endl;
     for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++){
@@ -88,15 +84,19 @@ void DnsServer::start() throw (std::runtime_error){
     for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++)
         iter->run();
 
-    cerr << "DnsServer waiting on exit semaphore..." << endl;
-    int sem_retval;
-    while (((sem_retval = sem_wait(&DnsServer::stop_sem)) == -1) && (errno == EINTR))
-        continue;       /* Restart if interrupted by some handler */
-    if (sem_retval != 0)
-        throw std::runtime_error("Error on sem_wait()");
-
+    try {
+        cerr << "DnsServer waiting on exit semaphore..." << endl;
+        DnsServer::stop_sem.wait();
+    } catch (Thread::ThreadException& e){
+        throw std::runtime_error(e.what());
+    }
+    
+    
+        
     cerr << "DnsServer signalling stop to all workers" << endl;
-    DnsWorker::stop_flag = true;
+    for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++){
+        (*iter)->stop();
+    }
 
     cerr << "DnsServer closing all serversockets. " << endl;
     udp_serversocket.close();
@@ -104,7 +104,7 @@ void DnsServer::start() throw (std::runtime_error){
 
     cerr << "DnsServer signalling all workers with SIGALRM. " << endl;
     for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++){
-        pthread_kill(iter->getTid(), SIGALRM);
+        iter->kill(SIGALRM);
     }
 
     cerr << "DnsServer waiting for worker threads to finish..." << endl;
@@ -123,7 +123,7 @@ void DnsServer::start() throw (std::runtime_error){
 
 // SIGTERM and SIGINT signal handlers
 void DnsServer::sig_term_handler(int signo){
-    sem_post(&DnsServer::stop_sem);
+    DnsServer::stop_sem.post();
     return;
 }
 

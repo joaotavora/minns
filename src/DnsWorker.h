@@ -16,8 +16,8 @@
 class DnsWorker : public Thread::Runnable {
 public:
     virtual ~DnsWorker() = 0;
-    static bool stop_flag;
-
+    
+    void stop();
     std::string report() const;
     
 private:
@@ -35,12 +35,15 @@ protected:
     void*   main ();
 
     DnsWorker(DnsResolver& _resolver, Thread::Mutex &_resolve_mutex, const size_t _maxmessage);
+
     int id;
+    bool stop_flag;
 
 private:
     static void sig_alrm_handler(int signo);
     
     DnsResolver& resolver;
+
     const size_t maxmessage;
     int retval;
     static int uniqueid;

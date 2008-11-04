@@ -1,6 +1,7 @@
 // libc includes
-#include "string.h"
-#include "pthread.h"
+#include <string.h>
+#include <pthread.h>
+#include <signal.h>
 
 // Project includes
 #include "Thread.h"
@@ -19,9 +20,15 @@ void Thread::run() throw (ThreadException){
 }
 
 void Thread::join(void* retval) throw (ThreadException){
-    if ((errno=pthread_join(tid, &retval) != 0))
+    if ((errno = pthread_join(tid, &retval) != 0))
         throw ThreadException(errno, "Could not pthread_join()");
 }
+
+void Thread::kill(int signal) throw (ThreadException){
+    if ((errno = pthread_kill(tid, signal)) != 0)
+        throw ThreadException(errno, "Could not pthread_kill()");
+}
+
 
 void* Thread::helper(void* args){
     return (static_cast<Runnable *>(args))->main();
@@ -57,6 +64,34 @@ void Thread::Mutex::lock() throw (ThreadException){
     if ((errno=pthread_mutex_lock(&mutex) != 0))
         throw ThreadException(errno, "Could not pthread_mutex_lock()");
     cerr << "        (Thread " << hex << self() << " locked mutex @" << hex << &mutex << ")" << endl << dec;
+}
+
+// Semaphore nested class
+Thread::Semaphore::Semaphore(int pshared, int value) throw (ThreadException){
+    if (sem_init(&sem, pshared, value) == -1){
+        throw ThreadException(errno, "Could not sem_init()");
+    }
+}
+
+Thread::Semaphore::~Semaphore(){
+    if (sem_destroy(&sem) != 0)
+        cerr << "~Semaphore(): Warning could not destroy semaphore at 0x" << hex << &sem << endl;
+}
+
+Thread::Semaphore::Semaphore(const Semaphore& src){} // private copy constructor does nothing
+
+
+void Thread::Semaphore::wait() throw (ThreadException){
+    int sem_retval;
+    while (((sem_retval = sem_wait(&sem)) == -1) && (errno == EINTR))
+        continue;       /* Restart if interrupted by some handler */
+    if (sem_retval != 0)
+        throw ThreadException(errno, "Could not sem_wait()");
+}
+
+void Thread::Semaphore::post() throw (ThreadException){
+    if (sem_post(&sem) != 0)
+        throw ThreadException(errno, "Could not sem_post()");
 }
 
 

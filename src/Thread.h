@@ -9,6 +9,7 @@
 // libc includes
 
 #include <pthread.h>
+#include <semaphore.h>
 #include <errno.h>
 
 
@@ -50,9 +51,22 @@ public:
         pthread_mutex_t mutex;
     };
 
+    // Semaphore nested class
+    class Semaphore {
+    public:
+        Semaphore(int level = 0, int value = 0) throw(ThreadException);
+        ~Semaphore();
+        void wait() throw (ThreadException);
+        void post() throw (ThreadException);
+    private:
+        Semaphore(const Semaphore& src);
+        sem_t sem;
+    };
+
     // pthread wrappers
     void run() throw (ThreadException);
     void join(void* retval) throw (ThreadException);
+    void kill(int signal) throw (ThreadException);
 
     // accessor
     pthread_t getTid() const {

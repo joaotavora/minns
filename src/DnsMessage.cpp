@@ -335,9 +335,12 @@ DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxm
     // keep the same questions
     questions.assign(query.questions.begin(), query.questions.end());
 
+    // cerr << "        (DnsResponse: query.questions.size() is " << query.questions.size() << endl;
+
     for (list<DnsQuestion>::iterator iter =  questions.begin(); iter != questions.end(); iter++){
         // provide answers using resolver
         try {
+            // cerr << "        (DnsResponse: this is iter->QNAME " << iter->QNAME << endl;
             list<struct in_addr> result(*resolver.resolve(iter->QNAME));
             for (list<struct in_addr>::iterator jter = result.begin(); jter != result.end() ; jter++){
                 ResourceRecord record(iter->QNAME,*jter);

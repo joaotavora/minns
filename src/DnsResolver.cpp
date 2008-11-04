@@ -66,7 +66,7 @@ const list<struct in_addr>* DnsResolver::resolve(const std::string& address) thr
     // lookup `address' in the cache
     list<struct in_addr>* result = cache.lookup(address);
     if (result != NULL) {
-    // cerr <<  "        (Cache HIT! for \'" << address << "\'\n";
+        // cerr <<  "        (Cache HIT! for \'" << address << "\'\n";
         return result;
     }
     // cerr <<  "        (Cache MISS for \'" << address << "\')\n";

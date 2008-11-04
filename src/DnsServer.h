@@ -43,12 +43,12 @@ private:
     // Static 
     static void sig_alarm_handler(int signo);
     static void sig_term_handler(int signo);
-    static sem_t stop_sem;
 
     // Member attributes
     std::list<DnsWorker*> workers;
 
     bool stopFlag;
+    static Thread::Semaphore stop_sem;
     Thread::Mutex accept_mutex;
     Thread::Mutex resolve_mutex;
     

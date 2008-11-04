@@ -22,12 +22,12 @@ public:
     TcpSocket* accept() const throw (SocketException);
 
     // Data Transmission - raw byte functions
-    size_t read(char* buff, const size_t howmany, bool* stopflag = NULL) const throw (SocketException);
-    size_t write(const char* buff, const size_t howmany, bool* stopflag = NULL) const throw (SocketException);
+    size_t read(char* buff, const size_t howmany, const bool* stopflag = NULL) const throw (SocketException);
+    size_t write(const char* buff, const size_t howmany, const bool* stopflag = NULL) const throw (SocketException);
 
     // Data Transmission - string functions
-    size_t readline(std::string& result, const char delimiter = '\n', const size_t maxlen = DEFAULT_MAX_MSG, bool* stopflag = NULL) throw (SocketException);
-    size_t writeline (const std::string, bool* stopflag = NULL) const throw (SocketException);
+    size_t readline(std::string& result, const char delimiter = '\n', const size_t maxlen = DEFAULT_MAX_MSG, const bool* stopflag = NULL) throw (SocketException);
+    size_t writeline (const std::string, const bool* stopflag = NULL) const throw (SocketException);
 
     void setMaxReceive(size_t howmany);
     size_t getMaxReceive() const;

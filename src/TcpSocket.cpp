@@ -62,7 +62,7 @@ TcpSocket* TcpSocket::accept() const throw (SocketException){
 }
 
 // Data Transmission - raw byte functions
-size_t TcpSocket::read(char* buff, const size_t howmany, bool* stopflag) const throw (SocketException){
+size_t TcpSocket::read(char* buff, const size_t howmany, const bool* stopflag) const throw (SocketException){
     size_t read_cnt = 0;
 
 again:
@@ -79,7 +79,7 @@ again:
     return read_cnt;
 }
 
-size_t TcpSocket::write(const char* buff, const size_t howmany, bool* stopflag) const throw (SocketException){
+size_t TcpSocket::write(const char* buff, const size_t howmany, const bool* stopflag) const throw (SocketException){
     size_t write_cnt;
 again:
     if ((write_cnt = ::write(sockfd, buff, howmany)) < 0){
@@ -91,11 +91,11 @@ again:
     return write_cnt;
 }
 
-size_t TcpSocket::writeline(const string s, bool* stopflag) const throw (SocketException){
+size_t TcpSocket::writeline(const string s, const bool* stopflag) const throw (SocketException){
     return write(s.c_str(), s.size(), stopflag);
 }
 
-size_t TcpSocket::readline(string& retval, const char delimiter, const size_t maxlen, bool* stopflag) throw (SocketException){
+size_t TcpSocket::readline(string& retval, const char delimiter, const size_t maxlen, const bool* stopflag) throw (SocketException){
     size_t read_cnt = 0;
     char* temp= new char[maxlen+1];
 
