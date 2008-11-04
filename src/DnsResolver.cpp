@@ -119,6 +119,7 @@ search:
                     cwarning << "\t(Cache is full \'" << *iter << "\' not inserted)" << endl;
                 }
             }
+            if (result != NULL) break;
         }
     }
     if (result == NULL)
