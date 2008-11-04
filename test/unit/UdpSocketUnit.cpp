@@ -164,7 +164,7 @@ bool sendReceiveStringTest(){
         cout << "Done!\n";
         return true;
     } catch (std::exception& e) {
-        cout << "  Server exception" << e.what() << endl;
+        cout << "  Server exception: " << e.what() << endl;
         cout << "Failed!\n";
         return false;
     }

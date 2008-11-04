@@ -4,9 +4,17 @@
 #include <signal.h>
 
 // Project includes
+#include "trace.h"
 #include "Thread.h"
 
+// usings
 using namespace std;
+
+// statics
+
+const int Thread::ThreadException::EINVAL_error   = EINVAL;
+const int Thread::ThreadException::EFAULT_error   = EFAULT;
+const int Thread::ThreadException::ESRCH_error    = ESRCH;
 
 Thread::Thread(Runnable& h) throw ()
     : handler(h), tid(NULL) {}
@@ -16,17 +24,17 @@ Thread::~Thread(){}
 void Thread::run() throw (ThreadException){
     if ((errno =
             pthread_create(&tid, NULL, &(Thread::helper), (void *) &handler)) != 0)
-        throw ThreadException(errno, "Could not pthread_create()");
+        throw ThreadException(errno, TRACELINE("Could not pthread_create()"));
 }
 
 void Thread::join(void* retval) throw (ThreadException){
     if ((errno = pthread_join(tid, &retval) != 0))
-        throw ThreadException(errno, "Could not pthread_join()");
+        throw ThreadException(errno, TRACELINE("Could not pthread_join()"));
 }
 
 void Thread::kill(int signal) throw (ThreadException){
     if ((errno = pthread_kill(tid, signal)) != 0)
-        throw ThreadException(errno, "Could not pthread_kill()");
+        throw ThreadException(errno, TRACELINE("Could not pthread_kill()"));
 }
 
 
@@ -43,12 +51,12 @@ pthread_t Thread::self(){
 Thread::Mutex::Mutex() throw (ThreadException) {
     // Support only default attributes
     if (pthread_mutex_init(&mutex, NULL) != 0)
-        throw ThreadException(errno, "Could not pthread_mutex_init()");
+        throw ThreadException(errno, TRACELINE("Could not pthread_mutex_init()"));
 }
 
 Thread::Mutex::~Mutex(){
     if (pthread_mutex_destroy(&mutex) != 0)
-        cerr << "~Mutex(): Warning: could not destroy mutex at 0x" << hex << &mutex << endl;
+        cerror << "~Mutex(): could not destroy mutex at 0x" << hex << &mutex << endl;
 }
 
 Thread::Mutex::Mutex(const Mutex& src){} // private copy constructor does nothing
@@ -56,26 +64,26 @@ Thread::Mutex::Mutex(const Mutex& src){} // private copy constructor does nothin
 void Thread::Mutex::unlock() throw (ThreadException){
     if ((errno=pthread_mutex_unlock(&mutex) != 0))
         throw ThreadException(errno, "Could not pthread_mutex_unlock()");
-    cerr << "        (Thread " << hex << self() << " unlocked mutex @" << hex << &mutex << ")"<< endl << dec;
+    ctrace << "        (Thread " << hex << self() << " unlocked mutex @" << hex << &mutex << ")"<< endl << dec;
 }
 
 void Thread::Mutex::lock() throw (ThreadException){
-    cerr << "        (Thread " << hex << self() << " waiting for mutex @" << hex << &mutex << ")" << endl << dec;
+    ctrace << "        (Thread " << hex << self() << " waiting for mutex @" << hex << &mutex << ")" << endl << dec;
     if ((errno=pthread_mutex_lock(&mutex) != 0))
         throw ThreadException(errno, "Could not pthread_mutex_lock()");
-    cerr << "        (Thread " << hex << self() << " locked mutex @" << hex << &mutex << ")" << endl << dec;
+    ctrace << "        (Thread " << hex << self() << " locked mutex @" << hex << &mutex << ")" << endl << dec;
 }
 
 // Semaphore nested class
 Thread::Semaphore::Semaphore(int pshared, int value) throw (ThreadException){
     if (sem_init(&sem, pshared, value) == -1){
-        throw ThreadException(errno, "Could not sem_init()");
+        throw ThreadException(errno, TRACELINE("Could not sem_init()"));
     }
 }
 
 Thread::Semaphore::~Semaphore(){
     if (sem_destroy(&sem) != 0)
-        cerr << "~Semaphore(): Warning could not destroy semaphore at 0x" << hex << &sem << endl;
+        cerror << "~Semaphore(): could not destroy semaphore at 0x" << hex << &sem << endl;
 }
 
 Thread::Semaphore::Semaphore(const Semaphore& src){} // private copy constructor does nothing
@@ -86,12 +94,12 @@ void Thread::Semaphore::wait() throw (ThreadException){
     while (((sem_retval = sem_wait(&sem)) == -1) && (errno == EINTR))
         continue;       /* Restart if interrupted by some handler */
     if (sem_retval != 0)
-        throw ThreadException(errno, "Could not sem_wait()");
+        throw ThreadException(errno, TRACELINE("Could not sem_wait()"));
 }
 
 void Thread::Semaphore::post() throw (ThreadException){
     if (sem_post(&sem) != 0)
-        throw ThreadException(errno, "Could not sem_post()");
+        throw ThreadException(errno, TRACELINE("Could not sem_post()"));
 }
 
 
@@ -120,3 +128,8 @@ const char * Thread::ThreadException::what() const throw(){
 
     return s.c_str();
 }
+
+int Thread::ThreadException::what_errno() const throw(){ return errno_number; }
+
+
+

@@ -11,20 +11,11 @@
 
 // project includes
 #include "helper.h"
+#include "trace.h"
 #include "DnsServer.h"
 
 // usings
 using namespace std;
-
-void initialize(){
-    // primitive log
-    ofstream out("my_err");
-    if ( out )
-        clog.rdbuf(out.rdbuf());
-    else
-        cerr << "Error while opening the file" << endl;
-
-}
 
 void print_usage(char* program){
     cout << "Usage: " << program << " [options]" << endl;
@@ -35,7 +26,7 @@ void print_usage(char* program){
     cout << "     -m MAXALIASES    maximum MAXALIASES aliases per entry (default is " << DnsResolver::DEFAULT_MAX_ALIASES[0] << ")" << endl;
     cout << "     -i MAXIALIASES   maximum MAXIALIASES addresses per alias (default is " << DnsResolver::DEFAULT_MAX_INVERSE_ALIASES[0] << ")" << endl;
     cout << endl;
-    cout << " Server options" << endl;
+    cout << " Network options" << endl;
     cout << "     -t TCPPORT       use TCP port TCPPORT (default is " << DnsServer::DEFAULT_TCP_PORT[0] << ")" << endl;
     cout << "     -u UDPPORT       use UDP port UDPPORT (default is " << DnsServer::DEFAULT_UDP_PORT[0] << ")" << endl;
     cout << "     -p TCPWORKERS    use TCPWORKERS threads for TCP connections (default is " << DnsServer::DEFAULT_TCP_WORKERS[0] << ")" << endl;
@@ -64,7 +55,6 @@ int main(int argc, char* argv[]){
         uint16_t udpport = DnsServer::DEFAULT_UDP_PORT[0];  // u
         unsigned int tcptimeout = DnsServer::DEFAULT_TCP_TIMEOUT[0]; // o
 
-        opterr=0;
         char opt;
         while ((opt = getopt(argc, argv, "hf:c:m:i:d:p:t:u:")) != -1) {
             stringstream ss;
@@ -104,7 +94,7 @@ int main(int argc, char* argv[]){
                     break;
                 }
             } catch (std::runtime_error& e) {
-                cerr << argv[0]<< ": " << e.what() << endl;
+                cwarning << argv[0]<< ": " << e.what() << endl;
             }
         }
 
@@ -116,7 +106,7 @@ int main(int argc, char* argv[]){
         cout << "     -m MAXALIASES    maximum MAXALIASES aliases per entry (using " << maxaliases << ")" << endl;
         cout << "     -i MAXIALIASES   maximum MAXIALIASES addresses per alias (using " << maxinversealiases << ")" << endl;
         cout << endl;
-        cout << " Server options" << endl;
+        cout << " Network options" << endl;
         cout << "     -t TCPPORT       use TCP port TCPPORT (using " << tcpport << ")" << endl;
         cout << "     -u UDPPORT       use UDP port UDPPORT (using " << udpport << ")" << endl;
         cout << "     -p TCPWORKERS    use TCPWORKERS threads for TCP connections (using " << tcpthreads << ")" << endl;
@@ -130,7 +120,7 @@ int main(int argc, char* argv[]){
         a.start();
         return 0;
     } catch (std::exception& e) {
-        cerr << "Exception: " << e.what() << endl;
+        cfatal << "Exception: " << e.what() << endl;
         return -1;
     }
 }

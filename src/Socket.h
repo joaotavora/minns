@@ -24,8 +24,8 @@ public:
     public:
         SocketException(int i, const char* s);
         SocketException(const char* s);
-        const char * what() const throw();
-        friend std::ostream& operator<<(std::ostream& os, const SocketException& e);
+        const char* what() const throw();
+        int what_errno() const throw();
     private:
         int errno_number;
         static const size_t MAXERRNOMSG=200;

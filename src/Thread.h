@@ -22,6 +22,12 @@ public:
         ThreadException(int i, const char* s);
         ThreadException(const char* s);
         const char * what() const throw();
+        int what_errno() const throw();
+
+        const static int EINVAL_error;
+        const static int EFAULT_error;
+        const static int ESRCH_error;
+        
     private:
         int errno_number;
         static const ssize_t MAXERRNOMSG=200;

@@ -4,7 +4,7 @@
 #include <string>
 
 // Project includes
-
+#include "trace.h"
 #include "TcpSocket.h"
 
 using namespace std;
@@ -14,10 +14,10 @@ using namespace std;
 TcpSocket::TcpSocket() throw (Socket::SocketException)
     :
     Socket(socket (AF_INET, SOCK_STREAM, 0)), maxreceive(DEFAULT_MAX_MSG){
-    // cout << "TcpSocket ctor\n";
+    // ctrace << "TcpSocket ctor\n";
 
     if (sockfd == -1){
-        throw SocketException(errno, "Could not create socket");
+        throw SocketException(errno, TRACELINE("Could not socket()"));
     }
 }
 
@@ -40,12 +40,12 @@ void TcpSocket::connect(const string& host, const int port) throw (SocketExcepti
     inet_pton (AF_INET, host.c_str(), &clientaddress.sin_addr);
 
     if (::connect(sockfd, reinterpret_cast<struct sockaddr *>(&toClient.sockaddr), sizeof(sockaddr_in)) != 0)
-        throw SocketException(errno, "Could not connect()");
+        throw SocketException(errno, TRACELINE("Could not connect()"));
 }
 
 void TcpSocket::listen(const int max_connections) throw (SocketException){
     if (::listen (sockfd, max_connections) != 0)
-        throw SocketException(errno, "Cound not listen()");
+        throw SocketException(errno, TRACELINE("Cound not listen()"));
 }
 
 TcpSocket* TcpSocket::accept() const throw (SocketException){
@@ -55,7 +55,7 @@ TcpSocket* TcpSocket::accept() const throw (SocketException){
     if ((clifd = ::accept (sockfd,
                 reinterpret_cast<struct sockaddr *>(&fromClient.sockaddr),
                 &fromClient.socklen)) == -1)
-        throw SocketException("Could not accept()");
+        throw SocketException(errno, TRACELINE("Could not accept()"));
 
     TcpSocket* client = new TcpSocket(clifd, fromClient);
     return client;
@@ -70,10 +70,10 @@ again:
     if (read_cnt < 0){
         // No data read, interruption or maybe more serious error
         if ((errno == EINTR) and ((stopflag == NULL) or (*stopflag==false))){
-            cerr << "        (read caught EINTR)" << endl;
+            ctrace << "TcpSocket::read caught EINTR. restarting..." << endl;
             goto again;
         } else {
-            throw new SocketException(errno, "read() error");
+            throw new SocketException(errno, TRACELINE("Could not read()"));
         }
     }
     return read_cnt;
@@ -84,9 +84,9 @@ size_t TcpSocket::write(const char* buff, const size_t howmany, const bool* stop
 again:
     if ((write_cnt = ::write(sockfd, buff, howmany)) < 0){
         if ((errno == EINTR) and ((stopflag == NULL) or (*stopflag==false))){
-            cerr << "        (write caught EINTR)" << endl;
+            ctrace << "TcpSocket::write caught EINTR. restarting..." << endl;
             goto again;
-        } else throw SocketException(errno, "write() error");
+        } else throw SocketException(errno, TRACELINE("Could not write()"));
     }
     return write_cnt;
 }
@@ -131,12 +131,12 @@ again:
             read_buffer.assign("");
             if (read_cnt == maxlen) {
                 delete []temp;
-                // cout << "     (already read " << maxlen << " chars)" << endl;
+                // ctrace << "     (already read " << maxlen << " chars)" << endl;
                 return read_cnt;
             }
         }
         // newline not found and remaining not exhausted, try another read system call
-        // cout << "     (going for another " << maxreceive << " read)" << endl;
+        // ctrace << "     (going for another " << maxreceive << " read)" << endl;
         goto again;
     }
 }
@@ -160,7 +160,7 @@ bool operator>>(TcpSocket& ts, string& towriteto) throw (Socket::SocketException
     string temp;
     size_t read = ts.readline(temp);
     towriteto.append(temp);
-    // cout << "     (operator>> reports " << read << " read line is " << towriteto << ")" << endl;
+    // ctrace << "     (operator>> reports " << read << " read line is " << towriteto << ")" << endl;
     return read != string::npos;
 }
 

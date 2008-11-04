@@ -9,7 +9,7 @@
 #include <sstream>
 
 // Project includes
-
+#include "trace.h"
 #include "DnsResolver.h"
 
 // usings
@@ -46,30 +46,30 @@ string& DnsResolver::resolve_to_string(const string& what) throw (ResolveExcepti
     static string retval;
     stringstream ss;
 
-    list<struct in_addr> result(*resolve(what));
+    addr_set_t result(*resolve(what));
 
-    for (list<struct in_addr>::iterator iter = result.begin(); iter != result.end() ; iter++){
+    for (addr_set_t::iterator iter = result.begin(); iter != result.end() ; iter++){
         struct in_addr temp = *iter;
         if (inet_ntop (
                 AF_INET,
                 reinterpret_cast<void *>(&temp),
                 buff,
                 sizeof(buff)) == NULL)
-            throw ResolveException("Could not place network address in a string");
+            throw ResolveException(TRACELINE("Could not inet_ntop()"));
         ss << " " << buff;
     }
     retval.assign(ss.str());
     return retval;
 }
 
-const list<struct in_addr>* DnsResolver::resolve(const std::string& address) throw (ResolveException) {
+const addr_set_t* DnsResolver::resolve(const std::string& address) throw (ResolveException) {
     // lookup `address' in the cache
-    list<struct in_addr>* result = cache.lookup(address);
+    addr_set_t* result = cache.lookup(address);
     if (result != NULL) {
-        // cerr <<  "        (Cache HIT! for \'" << address << "\'\n";
+        ctrace <<  "\t(Cache HIT! for \'" << address << "\')\n";
         return result;
     }
-    // cerr <<  "        (Cache MISS for \'" << address << "\')\n";
+    cwarning <<  "\t(Cache MISS for \'" << address << "\')\n";
 
     // search the file
     file.clear();
@@ -81,13 +81,13 @@ const list<struct in_addr>* DnsResolver::resolve(const std::string& address) thr
         if (parse_line(line, parsed) != -1){
             for (list<string>::iterator iter=parsed.aliases.begin(); iter != parsed.aliases.end(); iter++){
                 if (address.compare(*iter) == 0){
-                    // cerr << "        (File HIT for \'" << *iter << "\' inserted into cache )" << endl;
+                    ctrace << "\t(File HIT for \'" << *iter << "\' inserted into cache )" << endl;
                     result = cache.insert(*iter, parsed.ip);
                 } else if (!cache.full()) {
-                    // cerr << "        (Inserting \'" << *iter << "\' into cache anyway )" << endl;
+                    ctrace << "\t(Inserting \'" << *iter << "\' into cache anyway )" << endl;
                     cache.insert(*iter, parsed.ip);
                 } else {
-                    // cerr << "        (Cache is full \'" << *iter << "\' not inserted)" << endl;
+                    cwarning << "\t(Cache is full \'" << *iter << "\' not inserted)" << endl;
                 }
             }
         }
@@ -109,7 +109,7 @@ int DnsResolver::parse_line(const std::string& line, DnsEntry& parsed) throw (Re
         case 0:
             return -1;
         case -1:
-            throw ResolveException(errno, "Error in inet_pton()");
+            throw ResolveException(errno, TRACELINE("could not inet_pton()"));
         default:
             break;
         }
@@ -136,7 +136,9 @@ std::ostream& operator<<(std::ostream& os, const DnsResolver& dns){
 
 // MapValue constructor
 DnsResolver::Cache::MapValue::MapValue(struct in_addr ip, list<map_t::iterator>::iterator li)
-    : ips(1, ip), listiter(li) {}
+    : listiter(li) {
+    ips.insert(ip);
+}
 
 DnsResolver::Cache::Cache(unsigned int ms, unsigned int maxialiases) :
     maxsize(ms),
@@ -147,7 +149,7 @@ DnsResolver::Cache::~Cache(){
     local_list.clear();
 }
 
-list<struct in_addr> *DnsResolver::Cache::lookup(const string& name){
+addr_set_t *DnsResolver::Cache::lookup(const string& name){
     // lookup the key in the map
     map_t::iterator i = local_map.find(name);
     if (i != local_map.end() ){
@@ -164,7 +166,7 @@ list<struct in_addr> *DnsResolver::Cache::lookup(const string& name){
     return NULL;
 }
 
-list<struct in_addr>* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
+addr_set_t* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
 
     // add element to map and keep an iterator to it. point the newly
     // MapValue to local_list.begin(), but that will be made invalid soon.
@@ -172,13 +174,13 @@ list<struct in_addr>* DnsResolver::Cache::insert(string& alias, struct in_addr i
     map_t::iterator retval_iter;
     if ((retval_iter = local_map.find(alias)) != local_map.end()){
         if (retval_iter->second.ips.size() < maxipaliases)
-            retval_iter->second.ips.push_back(ip);
+            retval_iter->second.ips.insert(ip);
     } else {
         MapValue value(ip, local_list.begin());
         pair<map_t::iterator,bool> temppair =
             local_map.insert(make_pair(alias, value));
         if (temppair.second != true){
-            //cerr << "DnsResolver::Cache::insert(): Insertion of " << alias << " failed!" << endl;
+            cerror << "DnsResolver::Cache::insert(): Insertion of " << alias << " failed!" << endl;
             return NULL;
         }
         // insert into the beginning of the list the recently obtained iterator to
@@ -195,7 +197,7 @@ list<struct in_addr>* DnsResolver::Cache::insert(string& alias, struct in_addr i
         // the least important element, the back of the list
         if (local_list.size() > maxsize){
             // remove from map
-            cerr << "        (removing \'" << print_tail() << "\' from cache)" << endl;
+            cwarning << "        (removing \'" << print_tail() << "\' from cache)" << endl;
             local_map.erase(local_list.back());
             local_list.pop_back();
         }
@@ -239,11 +241,9 @@ const char * DnsResolver::ResolveException::what() const throw(){
     s.assign(std::runtime_error::what());
 
     if (errno_number != 0){
-        char buff[MAXERRNOMSG] = {0};
         s += ": ";
         s.append(strerror(errno_number));
     }
-
     return s.c_str();
 }
 

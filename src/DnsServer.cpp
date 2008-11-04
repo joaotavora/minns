@@ -1,4 +1,3 @@
-// TODO: install signal handler for the SIGTERM signal
 // TODO: FATAL, WARNING, MESSAGE macros
 
 // libc includes
@@ -14,6 +13,7 @@
 #include <list>
 
 // project includes
+#include "trace.h"
 #include "helper.h"
 #include "DnsServer.h"
 
@@ -69,55 +69,61 @@ DnsServer::~DnsServer(){
 }
 
 void DnsServer::start() throw (std::runtime_error){
-    cerr << "DnsServer installing signal handlers..." << endl;
+    cwarning << "installing signal handlers..." << endl;
     signal_helper(SIGTERM, DnsServer::sig_term_handler);
     signal_helper(SIGINT, DnsServer::sig_term_handler);
 
     list<Thread> threads;
-    cerr << "DnsServer creating worker threads..." << endl;
+    ctrace << "creating worker threads..." << endl;
     for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++){
         Thread t(**iter);
         threads.push_back(t);
     }
 
-    cerr << "DnsServer running worker threads..." << endl;
+    ctrace << "running worker threads..." << endl;
     for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++)
         iter->run();
 
     try {
-        cerr << "DnsServer waiting on exit semaphore..." << endl;
+        ctrace << "waiting on exit semaphore..." << endl;
         DnsServer::stop_sem.wait();
     } catch (Thread::ThreadException& e){
         throw std::runtime_error(e.what());
     }
     
-    
         
-    cerr << "DnsServer signalling stop to all workers" << endl;
+    ctrace << "signalling stop to all workers" << endl;
     for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++){
         (*iter)->stop();
     }
 
-    cerr << "DnsServer closing all serversockets. " << endl;
+    ctrace << "closing all serversockets" << endl;
     udp_serversocket.close();
     tcp_serversocket.close();
 
-    cerr << "DnsServer signalling all workers with SIGALRM. " << endl;
+    ctrace << "signalling all remaining workers with SIGALRM" << endl;
     for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++){
-        iter->kill(SIGALRM);
+        try {
+            iter->kill(SIGALRM);
+        } catch (Thread::ThreadException& e) {
+            if (e.what_errno() ==  Thread::ThreadException::ESRCH_error)
+                cwarning << "\t(tid = 0x" << hex << iter->getTid() << " had already died anyway)" << endl;
+            else throw e;
+        }
     }
 
-    cerr << "DnsServer waiting for worker threads to finish..." << endl;
+    ctrace << "waiting for worker threads to finish..." << endl;
     for (list<Thread>::iterator iter = threads.begin(); iter != threads.end(); iter++)
     {
         int retval = 0;
         iter->join(&retval);
-        cerr << "DnsServer: thread tid = " << iter->getTid() << " finished with retval " << retval << endl;
+        ctrace << "\t(thread tid =0x" << iter->getTid() << " finished with retval " << retval << ")" << endl;
     }
 
-    cerr << "DnsServer reports all threads joined. Follows worker status: " << endl;
+    ctrace << "all threads joined" << endl;
+    
     for (list<DnsWorker*>::iterator iter = workers.begin(); iter != workers.end(); iter++){
-        cerr << "         " << (*iter)->report() << endl;
+        cout << "\t\t" << (*iter)->report() << endl;
     }
 }
 

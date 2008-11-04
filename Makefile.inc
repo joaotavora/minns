@@ -1,4 +1,5 @@
 # global variables used by top-level make
-CXXFLAGS = -g -Wall -pedantic
-MAKELIB = libtool -o $(LIBDIR)/$@ $^
+export CXXFLAGS = -O3
+export LDLIBS = -pthread
+
 MAKEBIN = $(LINK.cpp) $^ $(LDLIBS) -o $(BINDOR)/$@

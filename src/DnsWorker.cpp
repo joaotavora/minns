@@ -5,6 +5,7 @@
 #include <sstream>
 
 // Project includes
+#include "trace.h"
 #include "helper.h"
 #include "DnsWorker.h"
 
@@ -55,51 +56,78 @@ string DnsWorker::report() const{
 void DnsWorker::work(){
     char* const temp = new char[maxmessage];
     memset(temp,0,maxmessage);
-    cout << this->what() << ": starting to work..." << endl;
+    ctrace << this->what() << ": starting to work..." << endl;
 
+    //
+    //  A. outer setup/teardown cycle
+    //  
     while (!stop_flag){
         try {
-            cerr << this->what() << ": setting up..." << endl;
+            ctrace << this->what() << ": setting up..." << endl;
             setup(); // tcp performs accept here, udp does nothing
         } catch (Socket::SocketException& e) {
-            cerr << "Warning: socket exception waiting for setup: " << e.what() << ". Continuing..." << endl;
+            cwarning << "SocketException during setup/teardown: " << e.what() << ". Resuming..." << endl;
             // if (e.errno() == EINTR) continue; else break;
         }
+        //
+        // B. inner read/write cycle
+        // 
         while (!stop_flag){
             try {
                 try {
+                    // B.1 Read query
+                    //
                     size_t read = readQuery(temp, maxmessage);
                     if (read == 0)
-                        throw Socket::SocketException("Read 0 bytes");
-                    // cerr << "\nRead " << read << " bytes: " << endl;
+                        throw Socket::SocketException(TRACELINE("Read 0 bytes"));
                     DnsMessage query(temp, read);
-                    cout << this->what() << ": read " << read << " bute long query:" << query << endl;
+                    ctrace << this->what() << ": read " << read << " byte long query:" << query << endl;
+
+                    // B.2 Answer query, serialize and send response
+                    //
+                    //     handle any exceptions while answering, unlock mutex
+                    //     and rethrow simply
+                    //
+                    //     handle rethrow any exceptions while serializing,
+                    //     rethrow as SERVER_FAILURE. This should produce error
+                    //     message to client
+                    //
                     try {
                         resolve_mutex.lock();
-                        DnsResponse response(query, resolver, maxmessage);
+                        DnsResponse response (query, resolver, maxmessage);
                         resolve_mutex.unlock();
                         size_t towrite = response.serialize(temp, maxmessage);
                         size_t written = sendResponse(temp, towrite);
-                        cout << this->what() << ": sent " << written << " byte long response: " << response << endl;
+                        ctrace << this->what() << ": sent " << written << " byte long response: " << response << endl;
                         served++;
                     } catch (DnsMessage::DnsException& e){
                         resolve_mutex.unlock();
                         throw e;
+                    } catch (DnsMessage::SerializeException& e){
+                        // TODO: Handle TC (Truncated bit) here.
+                        cerror << "response serialization failed" << endl;
+                        ctrace << "throwing another exception to indicate server failure " << endl;
+                        throw DnsMessage::DnsException(query.getID(), DnsErrorResponse::SERVER_FAILURE, TRACELINE("TC not implemented yet"));
                     }
+                    // B.3 Handle errors gracefully, responsing to client
+                    // 
                 } catch (DnsMessage::DnsException& e){
-                    cerr << "Warning: message exception: " << e.what() << endl;
+                    cwarning << " handling " << e.what() << endl;
                     DnsErrorResponse error_response(e);
                     size_t towrite = error_response.serialize(temp, maxmessage);
                     // hexdump(temp, towrite);
                     size_t written = sendResponse(temp, towrite);
-                    cout << this->what() << ": sent " << written << " byte long error response: " << error_response << endl;
+                    cwarning << this->what() << ": sent " << written << " byte long error response: " << error_response << endl;
                     served_error++;
                 }
+                // B.4 Problem serializing error message, abort, keep on B cycle
             } catch (DnsMessage::SerializeException& e) {
-                cerr << "Warning: could not serialize error respose: " << e.what() << endl;
+                cerror << "could not serialize error respose: " << e.what() << endl;
+                // B.5 Socket exception during B cycle, call polymorphic
+                //     teardown and escape to A cycle. 
             } catch (Socket::SocketException& e) {
-                cerr << "Warning: socket exception waiting for message: " << e.what() << ". Continuing..." << endl;
-                cerr << this->what() << ": tearing down connection..." << endl;
+                cwarning << "Socket Exception during read/write cycle: " << e.what() << ". Resuming..." << endl;
+                ctrace << this->what() << ": tearing down connection..." << endl;
                 teardown();
                 break;
             }
@@ -155,7 +183,7 @@ void TcpWorker::setup() throw (Socket::SocketException){
     try {
         acceptMutex.lock();
         connectedSocket = serverSocket.accept();
-        cerr << this->what() << ": accepted connection..." << endl;
+        ctrace << this->what() << ": accepted connection..." << endl;
         acceptMutex.unlock();
         if (timeout_tv.tv_sec != 0)
             connectedSocket->setsockopt(SOL_SOCKET, SO_RCVTIMEO, &timeout_tv, sizeof(timeout_tv));
@@ -184,7 +212,6 @@ size_t TcpWorker::readQuery(char* buff, const size_t maxmessage) throw(Socket::S
 }
 
 void TcpWorker::teardown() throw (Socket::SocketException){
-    cerr << "TcpWorker " << id << " tearing down connection..." << endl;
     connectedSocket->close();
     delete connectedSocket;
     connectedSocket = NULL;
@@ -195,7 +222,7 @@ size_t TcpWorker::sendResponse(const char* buff, const size_t buflen) throw(Sock
     *((uint16_t*)&temp[0]) = htons(buflen);
     
     if (connectedSocket->write(temp, 2, &stop_flag) != 2)
-        throw Socket::SocketException("Could not write length information for response");
+        throw Socket::SocketException(TRACELINE("Could not write() length info in response"));
     
     return connectedSocket->write(buff, buflen, &stop_flag);
 }

@@ -21,6 +21,8 @@ using namespace std;
 const int LOCALPORT = 34343;
 
 TcpSocket* bindListenAccept(int port, TcpSocket& serverSocket){
+    int on;
+    serverSocket.setsockopt (SOL_SOCKET, SO_REUSEADDR, (const char*) &on, sizeof (on));
     serverSocket.bind_any(port);
     serverSocket.listen();
 
@@ -215,7 +217,7 @@ bool sendReceiveObjectTest(){
 
         // Read the object
         Object received;
-        int len = serverSocket.read(reinterpret_cast<char *>(&received), sizeof(Object));
+        int len = connectedSocket->read(reinterpret_cast<char *>(&received), sizeof(Object));
         cout << "  Read: " << len << " bytes from " << *connectedSocket << endl;
         if (!(tosend.compare(received) == 0))
             throw std::runtime_error("objects dont match");
@@ -237,13 +239,18 @@ bool sendReceiveObjectTest(){
 }
 
 int main(int argc, char* argv[]){
+    int retval = false;
     cout << "Starting TcpSocket unit tests\n";
-    // simpleAcceptConnectTest();
-    sendReceiveObjectTest();
-    // readLinesFromClientTest(1);
-    // readLinesFromClientTest(5);
-    // readLinesFromClientTest(38);
-    // readLinesFromClientTest(39);
-    // readLinesFromClientTest(512);
+    retval= simpleAcceptConnectTest()
+        and sendReceiveObjectTest()
+        and readLinesFromClientTest(1)
+        and readLinesFromClientTest(5)
+        and readLinesFromClientTest(38)
+        and readLinesFromClientTest(39)
+        and readLinesFromClientTest(512);
     cout << "Done with TcpSocket unit tests\n";
+    if (retval)
+        exit (0);
+    else
+        exit (-1);
 }

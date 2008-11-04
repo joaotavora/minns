@@ -1,3 +1,6 @@
+#ifndef HELPER_H
+#define HELPER_H
+
 // libc includes
 #include <limits.h>
 #include <signal.h>
@@ -8,3 +11,5 @@
 void hexdump(void *pAddressIn, long  lSize);
 unsigned int strtol_helper(char c, char* arg, unsigned int const* defaults) throw (std::runtime_error);
 sighandler_t signal_helper(int signo, sighandler_t func) throw (std::runtime_error);
+
+#endif // HELPER_H
