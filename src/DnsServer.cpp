@@ -1,5 +1,3 @@
-// TODO: FATAL, WARNING, MESSAGE macros
-
 // libc includes
 #include <string.h>
 #include <stdlib.h>
