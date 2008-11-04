@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 // stdl includes
 
@@ -20,21 +23,28 @@ using namespace std;
 const unsigned int DnsResolver::DEFAULT_CACHE_SIZE[3] = {20, 1, LONG_MAX};
 const unsigned int DnsResolver::DEFAULT_MAX_ALIASES[3] = {5, 1, 512};
 const unsigned int DnsResolver::DEFAULT_MAX_INVERSE_ALIASES[3] = {5, 1, 512};
+const bool DnsResolver::DEFAULT_NOSTATFLAG = false;
 
 DnsResolver::DnsResolver(
-    const std::string& filename,
+    const std::string& _filename,
     const unsigned int maxsize,
     const unsigned int maxa,
-    const unsigned int maxialiases) throw (ResolveException)
-    : maxaliases(maxa)
+    const unsigned int maxialiases,
+    const bool _nostatflag) throw (ResolveException)
+    : maxaliases(maxa), filename(_filename), nostatflag(_nostatflag)
 {
+
+    struct stat filestat;
+    if ((stat(_filename.c_str(), &filestat) != 0))
+        throw ResolveException(string(TRACELINE("Could not stat() \'") + filename + "\'").c_str());
+
     file = new ifstream(filename.c_str(), ios::in);
     if (file->fail()){
         delete file;
         throw ResolveException(string(TRACELINE("Could not open \'") + filename + "\'").c_str());
     }
     
-    cache = new Cache(maxsize, maxialiases);
+    cache = new Cache(maxsize, maxialiases, filestat.st_mtime);
 }
 
 
@@ -65,16 +75,31 @@ string& DnsResolver::resolve_to_string(const string& what) throw (ResolveExcepti
     return retval;
 }
 
-const addr_set_t* DnsResolver::resolve(const std::string& address) throw (ResolveException) {
-    // lookup `address' in the cache
-    // TODO: CHECK FILE modification time
-    addr_set_t* result = cache->lookup(address);
-    if (result != NULL) {
-        ctrace <<  "\t(Cache HIT! for \'" << address << "\')\n";
-        return result;
-    }
-    cwarning <<  "\t(Cache MISS for \'" << address << "\')\n";
+const addr_set_t* DnsResolver::resolve(const std::string& name) throw (ResolveException) {
+    addr_set_t* result;
 
+    if (!nostatflag) {
+        struct stat filestat;
+        if (stat(filename.c_str(), &filestat) != 0)
+            throw ResolveException(string(TRACELINE("Could not stat() \'") + filename + "\'").c_str());
+        if (filestat.st_mtime != cache->get_file_mtime()){
+            cwarning << "File modification time has changed, clearing cache\n" << endl;
+            size_t size = cache->get_maxsize();
+            size_t ialias = cache->get_maxialiases();
+            delete cache;
+            cache = new Cache(size, ialias, filestat.st_mtime);
+            goto search;
+        }
+    } 
+    result = cache->lookup(name);
+    if (result != NULL) {
+        ctrace <<  "\t(Cache HIT! for \'" << name << "\')\n";
+        return result;
+    } else {
+        cwarning <<  "\t(Cache MISS for \'" << name << "\')\n";
+    }
+
+search:
     // search the file
     file->clear();
     file->seekg(0, ios::beg);
@@ -84,7 +109,7 @@ const addr_set_t* DnsResolver::resolve(const std::string& address) throw (Resolv
         DnsEntry parsed;
         if (parse_line(line, parsed) != -1){
             for (list<string>::iterator iter=parsed.aliases.begin(); iter != parsed.aliases.end(); iter++){
-                if (address.compare(*iter) == 0){
+                if (name.compare(*iter) == 0){
                     ctrace << "\t(File HIT for \'" << *iter << "\' inserted into cache )" << endl;
                     result = cache->insert(*iter, parsed.ip);
                 } else if (!cache->full()) {
@@ -97,7 +122,7 @@ const addr_set_t* DnsResolver::resolve(const std::string& address) throw (Resolv
         }
     }
     if (result == NULL)
-        throw ResolveException(string("Could not resolve \'" + address + "\'").c_str());
+        throw ResolveException(string("Could not resolve \'" + name + "\'").c_str());
     return result;
 }
 
@@ -144,18 +169,15 @@ DnsResolver::Cache::MapValue::MapValue(struct in_addr ip, list<map_t::iterator>:
     ips.insert(ip);
 }
 
-DnsResolver::Cache::Cache(size_t ms, unsigned int maxialiases) :
+DnsResolver::Cache::Cache(size_t ms, unsigned int maxialiases, time_t _file_mtime) :
     maxsize(ms),
-    maxipaliases(maxialiases){}
+    maxipaliases(maxialiases),
+    file_mtime(_file_mtime){}
 
 DnsResolver::Cache::~Cache(){
     local_map.clear();
     local_list.clear();
 }
-
-inline size_t DnsResolver::Cache::get_maxsize() const {return maxsize;}
-
-inline size_t DnsResolver::Cache::get_maxialiases() const {return maxipaliases;}
 
 addr_set_t *DnsResolver::Cache::lookup(const string& name){
     // lookup the key in the map
@@ -216,6 +238,12 @@ addr_set_t* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
 bool DnsResolver::Cache::full() const {
     return local_list.size() == maxsize;
 }
+
+inline size_t DnsResolver::Cache::get_maxsize() const {return maxsize;}
+
+inline size_t DnsResolver::Cache::get_maxialiases() const {return maxipaliases;}
+
+inline time_t DnsResolver::Cache::get_file_mtime() const { return file_mtime; }
 
 string DnsResolver::Cache::print_head() const {
     if (local_list.size() > 0)

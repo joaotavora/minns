@@ -47,7 +47,8 @@ public:
         const std::string& filename,
         const unsigned int maxsize = DEFAULT_CACHE_SIZE[0],
         const unsigned int maxaliases = DEFAULT_MAX_ALIASES[0],
-        const unsigned int maxialiases = DEFAULT_MAX_INVERSE_ALIASES[0]) throw (ResolveException);
+        const unsigned int maxialiases = DEFAULT_MAX_INVERSE_ALIASES[0],
+        const bool nostatflag = DEFAULT_NOSTATFLAG) throw (ResolveException);
     ~DnsResolver();
 
     // public members
@@ -61,6 +62,7 @@ public:
     static const unsigned int DEFAULT_CACHE_SIZE[3];
     static const unsigned int DEFAULT_MAX_ALIASES[3];
     static const unsigned int DEFAULT_MAX_INVERSE_ALIASES[3];
+    static const bool DEFAULT_NOSTATFLAG;
 
 private:
 
@@ -73,7 +75,7 @@ private:
     // Cache nested class
     class Cache {
     public:
-        Cache(unsigned int maxsize, unsigned int maxialiases);
+        Cache(unsigned int maxsize, unsigned int maxialiases, time_t file_mtime);
         ~Cache();
 
         // public members
@@ -82,6 +84,7 @@ private:
         bool full() const;
         size_t get_maxsize() const;
         size_t get_maxialiases() const;
+        time_t get_file_mtime() const;
 
     private:
         // MapValue nested nested class and friends
@@ -99,6 +102,7 @@ private:
 
         unsigned int maxsize;
         unsigned int maxipaliases;
+        time_t file_mtime;
 
         std::string print_head() const;
         std::string print_tail() const;
@@ -111,8 +115,11 @@ private:
 
     int parse_line(const std::string& line, DnsEntry& parsed) throw (ResolveException);
 
-    std::ifstream* file;
     unsigned int maxaliases;
+    std::string filename;
+    bool nostatflag;
+    
+    std::ifstream* file;
     Cache* cache;
 };
 

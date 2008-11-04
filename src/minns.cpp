@@ -25,6 +25,7 @@ void print_usage(char* program){
     cout << "     -c CACHESIZE     set resolver cache size to CACHESIZE (default is " << DnsResolver::DEFAULT_CACHE_SIZE[0] << ")" << endl;
     cout << "     -m MAXALIASES    maximum MAXALIASES aliases per entry (default is " << DnsResolver::DEFAULT_MAX_ALIASES[0] << ")" << endl;
     cout << "     -i MAXIALIASES   maximum MAXIALIASES addresses per alias (default is " << DnsResolver::DEFAULT_MAX_INVERSE_ALIASES[0] << ")" << endl;
+    cout << "     -n               do *not* stat FILE for changes on each resolve (faster) (default is " << DnsResolver::DEFAULT_NOSTATFLAG << ")" << endl;
     cout << endl;
     cout << " Network options" << endl;
     cout << "     -t TCPPORT       use TCP port TCPPORT (default is " << DnsServer::DEFAULT_TCP_PORT[0] << ")" << endl;
@@ -45,6 +46,7 @@ int main(int argc, char* argv[]){
         unsigned int cachesize = DnsResolver::DEFAULT_CACHE_SIZE[0]; // c
         unsigned int maxaliases = DnsResolver::DEFAULT_MAX_ALIASES[0]; //m
         unsigned int maxinversealiases = DnsResolver::DEFAULT_MAX_INVERSE_ALIASES[0]; //i
+        bool nostatflag = DnsResolver::DEFAULT_NOSTATFLAG;
 
         // DnsServer options
         unsigned int udpthreads = DnsServer::DEFAULT_UDP_WORKERS[0]; // d
@@ -56,13 +58,15 @@ int main(int argc, char* argv[]){
         unsigned int tcptimeout = DnsServer::DEFAULT_TCP_TIMEOUT[0]; // o
 
         char opt;
-        while ((opt = getopt(argc, argv, "hf:c:m:i:d:p:t:u:")) != -1) {
+        while ((opt = getopt(argc, argv, "nhf:c:m:i:d:p:t:u:")) != -1) {
             stringstream ss;
             try {
                 switch (opt) {
                 case 'h':
                     print_usage(argv[0]);
                     exit(0);
+                case 'n':
+                    nostatflag = true;
                 case 'f':
                     if (strlen(optarg) < DnsServer::MAX_FILE_NAME)
                         strncpy(cachefile, optarg, DnsServer::MAX_FILE_NAME);
@@ -105,6 +109,7 @@ int main(int argc, char* argv[]){
         cout << "     -c CACHESIZE     set resolver cache size to CACHESIZE (using " << cachesize << ")" << endl;
         cout << "     -m MAXALIASES    maximum MAXALIASES aliases per entry (using " << maxaliases << ")" << endl;
         cout << "     -i MAXIALIASES   maximum MAXIALIASES addresses per alias (using " << maxinversealiases << ")" << endl;
+        cout << "     -n               do *not* stat FILE for changes on each resolve (faster) (using " << nostatflag << ")" << endl;
         cout << endl;
         cout << " Network options" << endl;
         cout << "     -t TCPPORT       use TCP port TCPPORT (using " << tcpport << ")" << endl;
@@ -115,7 +120,7 @@ int main(int argc, char* argv[]){
         cout << endl;
 
 
-        DnsResolver r(cachefile, cachesize, maxaliases, maxinversealiases);
+        DnsResolver r(cachefile, cachesize, maxaliases, maxinversealiases, nostatflag);
         DnsServer a(r, udpport, tcpport, udpthreads, tcpthreads, tcptimeout);
         a.start();
         return 0;
