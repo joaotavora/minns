@@ -80,6 +80,8 @@ private:
         addr_set_t* lookup(const std::string& name);
         addr_set_t* insert(std::string& name, struct in_addr ip);
         bool full() const;
+        size_t get_maxsize() const;
+        size_t get_maxialiases() const;
 
     private:
         // MapValue nested nested class and friends
@@ -109,9 +111,9 @@ private:
 
     int parse_line(const std::string& line, DnsEntry& parsed) throw (ResolveException);
 
-    std::ifstream& file;
+    std::ifstream* file;
     unsigned int maxaliases;
-    Cache& cache;
+    Cache* cache;
 };
 
 #endif // DNS_RESOLVER_H                        

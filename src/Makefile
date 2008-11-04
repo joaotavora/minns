@@ -7,7 +7,7 @@ BINDIR  ?= $(CURDIR)
 
 MAKEBIN ?= $(LINK.cpp) $^ $(LDLIBS) -o $(BINDIR)/$@
 
-TESTOPTS = -f simplehosts.txt -t 43434 -u 43434 -p 3
+TESTOPTS = -f simplehosts.txt -c 2 -t 43434 -u 43434 -p 3
 
 # Specific to this makefile
 
@@ -19,11 +19,16 @@ minns: minns.o DnsServer.o DnsWorker.o DnsMessage.o UdpSocket.o TcpSocket.o Sock
 clean:
 	rm -rf *.o minns echo *.dSYM
 
-test: minns
+digtest: minns
 	(dig @localhost -p 43434 bla +short ble +short)& ./minns $(TESTOPTS) 
 
 memtest: minns
 	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns $(TESTOPTS)
+
+memdigtest: minns
+	(dig @localhost -p 43434 bla +short ble +short)&
+	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns $(TESTOPTS)
+
 
 .PHONY: all test clean memtest
 

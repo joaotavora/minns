@@ -26,19 +26,22 @@ DnsResolver::DnsResolver(
     const unsigned int maxsize,
     const unsigned int maxa,
     const unsigned int maxialiases) throw (ResolveException)
-    : file(*new ifstream(filename.c_str(), ios::in)),
-      maxaliases(maxa),
-      cache(*new Cache(maxsize, maxialiases))
+    : maxaliases(maxa)
 {
-    if (file.fail())
-        throw ResolveException(string("Could not open \'" + filename + "\'").c_str());
+    file = new ifstream(filename.c_str(), ios::in);
+    if (file->fail()){
+        delete file;
+        throw ResolveException(string(TRACELINE("Could not open \'") + filename + "\'").c_str());
+    }
+    
+    cache = new Cache(maxsize, maxialiases);
 }
 
 
 DnsResolver::~DnsResolver(){
-    file.close();
-    delete &file;
-    delete &cache;
+    file->close();
+    delete file;
+    delete cache;
 }
 
 string& DnsResolver::resolve_to_string(const string& what) throw (ResolveException){
@@ -64,7 +67,8 @@ string& DnsResolver::resolve_to_string(const string& what) throw (ResolveExcepti
 
 const addr_set_t* DnsResolver::resolve(const std::string& address) throw (ResolveException) {
     // lookup `address' in the cache
-    addr_set_t* result = cache.lookup(address);
+    // TODO: CHECK FILE modification time
+    addr_set_t* result = cache->lookup(address);
     if (result != NULL) {
         ctrace <<  "\t(Cache HIT! for \'" << address << "\')\n";
         return result;
@@ -72,20 +76,20 @@ const addr_set_t* DnsResolver::resolve(const std::string& address) throw (Resolv
     cwarning <<  "\t(Cache MISS for \'" << address << "\')\n";
 
     // search the file
-    file.clear();
-    file.seekg(0, ios::beg);
+    file->clear();
+    file->seekg(0, ios::beg);
     string line;
-    while (getline(file, line)){
+    while (getline(*file, line)){
         // cerr << " got line \'" << line << "\'" << endl;
         DnsEntry parsed;
         if (parse_line(line, parsed) != -1){
             for (list<string>::iterator iter=parsed.aliases.begin(); iter != parsed.aliases.end(); iter++){
                 if (address.compare(*iter) == 0){
                     ctrace << "\t(File HIT for \'" << *iter << "\' inserted into cache )" << endl;
-                    result = cache.insert(*iter, parsed.ip);
-                } else if (!cache.full()) {
+                    result = cache->insert(*iter, parsed.ip);
+                } else if (!cache->full()) {
                     ctrace << "\t(Inserting \'" << *iter << "\' into cache anyway )" << endl;
-                    cache.insert(*iter, parsed.ip);
+                    cache->insert(*iter, parsed.ip);
                 } else {
                     cwarning << "\t(Cache is full \'" << *iter << "\' not inserted)" << endl;
                 }
@@ -124,10 +128,10 @@ int DnsResolver::parse_line(const std::string& line, DnsEntry& parsed) throw (Re
 std::ostream& operator<<(std::ostream& os, const DnsResolver& dns){
     return os <<
         "[DnsResolver: " <<
-        "msize=\'" << dns.cache.local_map.size() << "\' " <<
-        "lsize=\'" << dns.cache.local_list.size() << "\' " <<
-        "head=\'" << dns.cache.print_head()  << "\' " <<
-        "tail=\'" << dns.cache.print_tail()  << "\' " <<
+        "msize=\'" << dns.cache->local_map.size() << "\' " <<
+        "lsize=\'" << dns.cache->local_list.size() << "\' " <<
+        "head=\'" << dns.cache->print_head()  << "\' " <<
+        "tail=\'" << dns.cache->print_tail()  << "\' " <<
         "]";
 }
 
@@ -140,7 +144,7 @@ DnsResolver::Cache::MapValue::MapValue(struct in_addr ip, list<map_t::iterator>:
     ips.insert(ip);
 }
 
-DnsResolver::Cache::Cache(unsigned int ms, unsigned int maxialiases) :
+DnsResolver::Cache::Cache(size_t ms, unsigned int maxialiases) :
     maxsize(ms),
     maxipaliases(maxialiases){}
 
@@ -148,6 +152,10 @@ DnsResolver::Cache::~Cache(){
     local_map.clear();
     local_list.clear();
 }
+
+inline size_t DnsResolver::Cache::get_maxsize() const {return maxsize;}
+
+inline size_t DnsResolver::Cache::get_maxialiases() const {return maxipaliases;}
 
 addr_set_t *DnsResolver::Cache::lookup(const string& name){
     // lookup the key in the map
@@ -197,7 +205,7 @@ addr_set_t* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
         // the least important element, the back of the list
         if (local_list.size() > maxsize){
             // remove from map
-            cwarning << "        (removing \'" << print_tail() << "\' from cache)" << endl;
+            cwarning << "\t(removing \'" << print_tail() << "\' from cache)" << endl;
             local_map.erase(local_list.back());
             local_list.pop_back();
         }
