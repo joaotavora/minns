@@ -79,8 +79,8 @@ private:
         ~Cache();
 
         // public members
-        addr_set_t* lookup(const std::string& name);
-        addr_set_t* insert(std::string& name, struct in_addr ip);
+        const addr_set_t* lookup(const std::string& name);
+        const addr_set_t* insert(std::string& name, struct in_addr ip);
         bool full() const;
         size_t get_maxsize() const;
         size_t get_maxialiases() const;

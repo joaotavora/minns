@@ -76,7 +76,7 @@ string& DnsResolver::resolve_to_string(const string& what) throw (ResolveExcepti
 }
 
 const addr_set_t* DnsResolver::resolve(const std::string& name) throw (ResolveException) {
-    addr_set_t* result;
+    const addr_set_t* result=NULL;
 
     if (!nostatflag) {
         struct stat filestat;
@@ -180,7 +180,7 @@ DnsResolver::Cache::~Cache(){
     local_list.clear();
 }
 
-addr_set_t *DnsResolver::Cache::lookup(const string& name){
+const addr_set_t * DnsResolver::Cache::lookup(const string& name){
     // lookup the key in the map
     map_t::iterator i = local_map.find(name);
     if (i != local_map.end() ){
@@ -197,7 +197,7 @@ addr_set_t *DnsResolver::Cache::lookup(const string& name){
     return NULL;
 }
 
-addr_set_t* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
+const addr_set_t* DnsResolver::Cache::insert(string& alias, struct in_addr ip){
 
     // add element to map and keep an iterator to it. point the newly
     // MapValue to local_list.begin(), but that will be made invalid soon.

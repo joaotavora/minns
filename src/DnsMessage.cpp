@@ -340,8 +340,8 @@ DnsResponse::DnsResponse(const DnsMessage& q, DnsResolver& resolver, size_t maxm
         // provide answers using resolver
         try {
             // ctrace << "\t(DnsResponse: this is iter->QNAME " << iter->QNAME << endl;
-            std::set<struct in_addr, in_addr_cmp> result(*resolver.resolve(iter->QNAME));
-            for (set<struct in_addr, in_addr_cmp>::iterator jter = result.begin(); jter != result.end() ; jter++){
+            const addr_set_t* result = resolver.resolve(iter->QNAME);
+            for (addr_set_t::iterator jter = result->begin(); jter != result->end() ; jter++){
                 ResourceRecord record(iter->QNAME,*jter);
                 answers.push_back(record);
             }

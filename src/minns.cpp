@@ -67,6 +67,7 @@ int main(int argc, char* argv[]){
                     exit(0);
                 case 'n':
                     nostatflag = true;
+                    break;
                 case 'f':
                     if (strlen(optarg) < DnsServer::MAX_FILE_NAME)
                         strncpy(cachefile, optarg, DnsServer::MAX_FILE_NAME);

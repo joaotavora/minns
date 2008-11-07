@@ -39,6 +39,9 @@ memdigtest: minns
 	(dig @localhost -p 43434 bla +short ble +short)&
 	valgrind --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes ./minns $(TESTOPTS)
 
+check-syntax:
+	$(CXX) -fsyntax-only $(CHK_SOURCES)
+
 
 .PHONY: all test clean memtest
 
