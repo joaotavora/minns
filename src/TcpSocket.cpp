@@ -63,7 +63,7 @@ TcpSocket* TcpSocket::accept() const throw (SocketException){
 
 // Data Transmission - raw byte functions
 size_t TcpSocket::read(char* buff, const size_t howmany, const bool* stopflag) const throw (SocketException){
-    size_t read_cnt = 0;
+    ssize_t read_cnt = 0;
 
 again:
     read_cnt = ::read(sockfd,buff,howmany);
@@ -167,7 +167,3 @@ bool operator>>(TcpSocket& ts, string& towriteto) throw (Socket::SocketException
 ostream& operator<<(ostream& os, const TcpSocket& sock){
     return os << "[TCP " << (const Socket&) sock << "]";
 }
-
-
-
-

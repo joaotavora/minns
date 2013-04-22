@@ -20,7 +20,7 @@
 using namespace std;
 
 // non integral type constant setting
-const unsigned int DnsResolver::DEFAULT_CACHE_SIZE[3] = {20, 1, LONG_MAX};
+const unsigned int DnsResolver::DEFAULT_CACHE_SIZE[3] = {20, 1, INT_MAX};
 const unsigned int DnsResolver::DEFAULT_MAX_ALIASES[3] = {5, 1, 512};
 const unsigned int DnsResolver::DEFAULT_MAX_INVERSE_ALIASES[3] = {5, 1, 512};
 const bool DnsResolver::DEFAULT_NOSTATFLAG = false;
@@ -43,7 +43,7 @@ DnsResolver::DnsResolver(
         delete file;
         throw ResolveException(string(TRACELINE("Could not open \'") + filename + "\'").c_str());
     }
-    
+
     cache = new Cache(maxsize, maxialiases, filestat.st_mtime);
 }
 
@@ -90,7 +90,7 @@ const addr_set_t* DnsResolver::resolve(const std::string& name) throw (ResolveEx
             cache = new Cache(size, ialias, filestat.st_mtime);
             goto search;
         }
-    } 
+    }
     result = cache->lookup(name);
     if (result != NULL) {
         ctrace <<  "\t(Cache HIT! for \'" << name << "\')\n";
@@ -170,7 +170,7 @@ DnsResolver::Cache::MapValue::MapValue(struct in_addr ip, list<map_t::iterator>:
     ips.insert(ip);
 }
 
-DnsResolver::Cache::Cache(size_t ms, unsigned int maxialiases, time_t _file_mtime) :
+DnsResolver::Cache::Cache(unsigned int ms, unsigned int maxialiases, time_t _file_mtime) :
     maxsize(ms),
     maxipaliases(maxialiases),
     file_mtime(_file_mtime){}
