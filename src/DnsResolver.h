@@ -52,7 +52,7 @@ public:
     ~DnsResolver();
 
     // public members
-    std::string& resolve_to_string(const std::string& what) throw (ResolveException);
+    std::string resolve_to_string(const std::string& what) throw (ResolveException);
     const addr_set_t* resolve(const std::string& address) throw (ResolveException);
 
     // friends
@@ -118,9 +118,9 @@ private:
     unsigned int maxaliases;
     std::string filename;
     bool nostatflag;
-    
+
     std::ifstream* file;
     Cache* cache;
 };
 
-#endif // DNS_RESOLVER_H                        
+#endif // DNS_RESOLVER_H

@@ -54,9 +54,8 @@ DnsResolver::~DnsResolver(){
     delete cache;
 }
 
-string& DnsResolver::resolve_to_string(const string& what) throw (ResolveException){
+string DnsResolver::resolve_to_string(const string& what) throw (ResolveException){
     static char buff[INET_ADDRSTRLEN];
-    static string retval;
     stringstream ss;
 
     addr_set_t result(*resolve(what));
@@ -71,8 +70,7 @@ string& DnsResolver::resolve_to_string(const string& what) throw (ResolveExcepti
             throw ResolveException(TRACELINE("Could not inet_ntop()"));
         ss << " " << buff;
     }
-    retval.assign(ss.str());
-    return retval;
+    return string(ss.str());
 }
 
 const addr_set_t* DnsResolver::resolve(const std::string& name) throw (ResolveException) {
